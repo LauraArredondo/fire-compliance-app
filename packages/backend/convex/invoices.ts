@@ -7,7 +7,7 @@ import { queueEmail, appUrl } from "./lib/notify";
 import { included, formatMoney } from "./lib/money";
 import { requestInvoicePdf, invoicePdfUrl } from "./lib/docPdf";
 import { newPublicToken } from "./lib/tokens";
-import { audit, withNames, fail, str, optStr, defined, loadDoc, loadForMember, inOrg, nextNumber, email as cleanEmail, validateLine, lineNet, lineTax, int, num, DAY, OFFICE, MANAGERS, ANY } from "./lib/util";
+import { audit, withNames, fail, str, optStr, defined, loadDoc, loadForMember, inOrg, nextNumber, email as cleanEmail, validateLine, lineNet, lineTax, int, num, DAY, OFFICE, MANAGERS, ANY, OFFICE_OR_CLIENT } from "./lib/util";
 
 const status = v.union(v.literal("draft"), v.literal("sent"), v.literal("partially_paid"), v.literal("paid"), v.literal("overdue"), v.literal("void"));
 const lineIn = v.object({ description: v.string(), quantity: v.number(), unitPrice: v.number(), discountPercent: v.optional(v.number()), taxRate: v.optional(v.number()) });
@@ -72,7 +72,7 @@ export const list = query({
 export const get = query({
   args: { invoiceId: v.id("invoices") },
   handler: async (ctx, { invoiceId }) => {
-    const { doc, membership } = await loadForMember(ctx, invoiceId, "Invoice", ANY);
+    const { doc, membership } = await loadForMember(ctx, invoiceId, "Invoice", OFFICE_OR_CLIENT);
     if (membership.role === "engineer") fail("Insufficient permissions");
     if (membership.role === "client_user") {
       if (hiddenFromClient(doc)) fail("Invoice not found");
@@ -246,7 +246,7 @@ export const voidInvoice = mutation({
 export const getPdf = query({
   args: { invoiceId: v.id("invoices") },
   handler: async (ctx, { invoiceId }) => {
-    const { doc, membership } = await loadForMember(ctx, invoiceId, "Invoice", ANY);
+    const { doc, membership } = await loadForMember(ctx, invoiceId, "Invoice", OFFICE_OR_CLIENT);
     if (membership.role === "engineer") fail("Insufficient permissions");
     if (membership.role === "client_user") {
       if (hiddenFromClient(doc)) fail("Invoice not found");

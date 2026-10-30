@@ -7,24 +7,24 @@ import { closeStaleAutoJobs, autoCreateJobsForOrg } from "./lib/autoJobs";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { MutationCtx } from "./_generated/server";
-import { audit, withNames, fail, str, optStr, defined, loadDoc, loadForMember, inOrg, cleanFrequency, frequencyV, addFrequency, int, DAY, STAFF, OFFICE, ANY } from "./lib/util";
+import { audit, withNames, fail, str, optStr, defined, loadDoc, loadForMember, inOrg, cleanFrequency, frequencyV, addFrequency, int, DAY, STAFF, OFFICE, ANY, OFFICE_OR_CLIENT } from "./lib/util";
 
-/** Active service schedules due within the next `days` days (incl. overdue), for staff. */
+/** Active service schedules due within the next `days` days (incl. overdue). Office+ only. */
 export const dueSoon = query({
   args: { orgId: v.id("organizations"), days: v.optional(v.number()) },
   handler: async (ctx, { orgId, days }) => {
-    await requireMember(ctx, orgId, STAFF);
+    await requireMember(ctx, orgId, OFFICE);
     const horizon = Date.now() + (days ?? 30) * DAY;
     const rows = await ctx.db.query("serviceSchedules").withIndex("by_org_and_next_due", (q) => q.eq("orgId", orgId).lte("nextDueAt", horizon)).take(500);
     return rows.filter((s) => s.status === "active");
   },
 });
 
-/** Schedules ordered by next due date (staff), or for one site (staff or that site's portal users). Paginated. */
+/** Schedules ordered by next due date (office+), or for one site (office+ or that site's portal users). Engineers refused. Paginated. */
 export const list = query({
   args: { orgId: v.id("organizations"), siteId: v.optional(v.id("sites")), status: v.optional(v.union(v.literal("active"), v.literal("paused"), v.literal("ended"))), paginationOpts: paginationOptsValidator },
   handler: async (ctx, { orgId, siteId, status, paginationOpts }) => {
-    const { membership } = await requireMember(ctx, orgId, ANY);
+    const { membership } = await requireMember(ctx, orgId, OFFICE_OR_CLIENT);
     if (membership.role === "client_user" && !siteId) {
       const page = await ctx.db.query("serviceSchedules").withIndex("by_client", (q) => q.eq("clientId", membership.clientId!)).paginate(paginationOpts);
       const out = [];
@@ -49,7 +49,7 @@ export const list = query({
 export const get = query({
   args: { scheduleId: v.id("serviceSchedules") },
   handler: async (ctx, { scheduleId }) => {
-    const { doc, membership } = await loadForMember(ctx, scheduleId, "Schedule", ANY);
+    const { doc, membership } = await loadForMember(ctx, scheduleId, "Schedule", OFFICE_OR_CLIENT);
     if (!(await canSeeSite(ctx, membership, await loadDoc(ctx, doc.siteId, "Site")))) fail("Schedule not found");
     return doc;
   },

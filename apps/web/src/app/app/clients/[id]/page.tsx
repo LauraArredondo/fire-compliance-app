@@ -10,17 +10,23 @@ import { address, date, money } from "@/lib/format";
 import { errorMessage } from "@/lib/errors";
 import { ActionButton, Badge, Button, Card, DL, ErrorBox, Field, Input, LinkButton, Loading, LoadMore, Notice, PageHeader, StatusBadge, Table } from "@/components/ui";
 import { CopyLink } from "@/components/CopyLink";
+import { NotAvailable } from "@/components/NotAvailable";
+import { useSafeQuery } from "@/lib/useSafeQuery";
+import { fullClient } from "@/lib/permissions";
 
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: Id<"clients"> }>();
   const { orgId, role } = useOrg();
   const office = OFFICE.includes(role);
-  const client = useQuery(api.clients.get, { clientId: id });
-  const sites = usePaginatedQuery(api.sites.list, { orgId, clientId: id }, { initialNumItems: 25 });
+  const { data: raw, denied } = useSafeQuery(api.clients.get, { clientId: id });
+  const client = fullClient(raw);
+  const sites = usePaginatedQuery(api.sites.list, client ? { orgId, clientId: id } : "skip", { initialNumItems: 25 });
   const quotes = useQuery(api.quotes.list, office ? { orgId, clientId: id, paginationOpts: { numItems: 20, cursor: null } } : "skip");
   const invoices = useQuery(api.invoices.list, office ? { orgId, clientId: id, paginationOpts: { numItems: 20, cursor: null } } : "skip");
   const setArchived = useMutation(api.clients.setArchived);
 
+  // Engineers get only { _id, name } (or a refusal) — the full client page is for office roles.
+  if (denied || (raw && !client)) return <NotAvailable what="client" />;
   if (!client) return <Loading />;
   const archived = client.status === "archived";
   return (
@@ -42,7 +48,7 @@ export default function ClientDetailPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card title="Details" className="lg:col-span-2">
           <DL items={[
-            ["Account number", client.accountNumber],
+            ["Account number", "accountNumber" in client ? (client.accountNumber as string | undefined) : null],
             ["Billing address", address(client.billingAddress)],
             ["Primary contact", client.primaryContact ? [client.primaryContact.name, client.primaryContact.role, client.primaryContact.email, client.primaryContact.phone].filter(Boolean).join(" · ") : null],
             ["Reminder emails", client.reminderEmails?.join(", ")],

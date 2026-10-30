@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { api, type Id } from "@/lib/api";
 import { useOrg } from "@/lib/session";
 import { disciplineLabel, humanize, jobStatusLabel } from "@/lib/labels";
 import { usePermissions } from "@/lib/permissions";
 import { NotAvailable } from "@/components/NotAvailable";
+import { useSafeQuery } from "@/lib/useSafeQuery";
 import { date, dateTime } from "@/lib/format";
 import { ActionButton, Badge, Button, Card, DL, ErrorBox, LinkButton, Loading, Notice, PageHeader, StatusBadge, Table, Textarea } from "@/components/ui";
 import { EngineerChecklist } from "@/components/Pickers";
@@ -29,7 +30,7 @@ export default function JobDetailPage() {
   const { me } = useOrg();
   const perms = usePermissions();
   const office = perms.can("jobs.manage");
-  const job = useQuery(api.jobs.get, { jobId: id });
+  const { data: job, denied } = useSafeQuery(api.jobs.get, { jobId: id });
   const setStatus = useMutation(api.jobs.setStatus);
   const assign = useMutation(api.jobs.assignEngineers);
   const startVisit = useMutation(api.visits.start);
@@ -41,8 +42,9 @@ export default function JobDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [visitNotes, setVisitNotes] = useState("");
 
+  // Engineers only see jobs they're assigned to (enforced by the backend; double-checked here).
+  if (denied) return <NotAvailable what="job" />;
   if (!job) return <Loading />;
-  // Engineers only see jobs they're assigned to.
   if (perms.assignedOnly && !job.assignedEngineerIds.includes(me._id)) return <NotAvailable what="job" />;
   const locked = ["completed", "invoiced", "cancelled"].includes(job.status);
   const openVisit = job.visits.find((v) => v.status === "on_site" || v.status === "travelling" || v.status === "planned");

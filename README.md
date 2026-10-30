@@ -85,23 +85,21 @@ sidebar and the route guards. Opening a page your role can't use redirects to `/
 | **Owner / Admin** | Everything. |
 | **Client user** | Client portal (`/portal`) only — unchanged. |
 
-### Backend gaps (to fix in the Convex project)
+### Server-side enforcement
 
-The web app hides these, but the Convex functions still allow them for engineers (verified with a live
-probe on the dev deployment). Hiding in the UI is not security — these need fixing in the backend:
+Coco's Convex backend now enforces the same rules (see "Role scoping (server-enforced)" in
+`packages/backend/API.md`): engineers only get their assigned jobs and those jobs' sites; clients come
+back as `{ _id, name }`; quotes, invoices, schedules and reminders answer `Insufficient permissions`;
+`organizations:get` leaves out bank details and billing settings.
 
-1. `jobs:get` returns jobs not assigned to the engineer (also check `visits:listByJob`, `inspections:listForVisit`, `attachments:listForEntity` for jobs).
-2. `jobs:list` returns every job in the company to engineers — refuse or filter to assigned.
-3. `sites:list` / `sites:get` return all sites; same for `assets:list/get`, `locations:listBySite`, `defects:openForSite`, `certificates:listBySite` — scope to sites of assigned jobs.
-4. `clients:list` (STAFF) / `clients:get` (ANY) expose billing address, account number, notes — make OFFICE-only or return name only.
-5. `quotes:list` / `quotes:get` / `quotes:getPdf` expose prices — refuse engineers (as `invoices:list` already does).
-6. `organizations:get` returns `bankDetails` and billing settings — strip for non-office roles.
-7. `serviceSchedules:list` / `get` / `dueSoon` — make OFFICE (or limit to assigned sites).
-8. `reminders:list`, `listNotifications`, `getNotification`, `snooze`, `dismiss` are STAFF — engineers can see/dismiss office reminders (incl. invoice overdue). Make OFFICE.
-9. `defects:raise` / `update` work at any site; `defects:list` is org-wide — restrict engineers to sites of assigned jobs.
-10. `certificates:createDraft` / `updateDraft` / `sign` / `issue` / `reissue` don't check assignment; `certificates:list` is org-wide — restrict engineers; consider `reissue` OFFICE-only.
-11. `assets:*` and `locations:*` mutations (STAFF) work at any site — same scoping.
+How the web app handles refusals:
 
-Already correct: `invoices:list`, `team:list`, `getReminderSettings` refuse engineers; `qualifications:list` is self-only for engineers.
-Suggested helper: `requireJobAccess(ctx, jobId)` / `canAccessSite(ctx, member, siteId)` (engineer ⇒ must have an assigned, non-cancelled job at that site).
-
+- `useSafeQuery` (`src/lib/useSafeQuery.ts`) — used for the main record on detail pages; a refusal
+  (`You're not assigned to this job`, `You're not assigned to a job at this site`, `Site not found`,
+  `You're not assigned to a job for this client`, `Insufficient permissions`) shows
+  "This … isn't available for your role" instead of an error.
+- `AccessBoundary` (wraps every page in the shell) and the `error.tsx` pages catch any other refused
+  query the same way; other errors still show "Something went wrong".
+- `useTopUp` (`src/lib/useTopUp.ts`) — `defects:list` / `certificates:list` are filtered after paging
+  for engineers, so a short or empty page is not the end; it keeps loading until enough rows or `isDone`.
+- `fullClient()` narrows `clients:get/list` results (engineers get only `{ _id, name }`).

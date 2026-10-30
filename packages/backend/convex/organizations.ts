@@ -175,6 +175,11 @@ export const get = query({
     const publicPart = { _id: org._id, name: org.name, email: org.email ?? null, phone: org.phone ?? null, address: org.address ?? null, accreditations: org.accreditations ?? [], logoUrl };
     if (membership.role === "client_user") return publicPart;
     const { reminderSettings, ...rest } = org;
+    if (membership.role === "engineer") {
+      // Below office: no bank details, billing settings (quote terms, invoice footer, default VAT) or automation settings.
+      const { bankDetails, quoteTerms, invoiceFooter, defaultTaxRate, jobAutomation, ...staff } = rest;
+      return { ...staff, logoUrl, role: membership.role };
+    }
     return { ...rest, logoUrl, role: membership.role };
   },
 });

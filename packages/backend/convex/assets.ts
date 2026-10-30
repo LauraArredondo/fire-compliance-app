@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import { mutation, query, MutationCtx } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
-import { requireMember, canSeeSite } from "./lib/auth";
+import { requireMember, canSeeSite, requireSiteScope } from "./lib/auth";
 import { newPublicToken } from "./lib/tokens";
 import { discipline } from "./schema";
 import { audit, fail, str, optStr, defined, loadDoc, loadForMember, inOrg, requireFile, IMAGE, addMonths, STAFF, ANY } from "./lib/util";
@@ -237,9 +237,10 @@ export const setStatus = mutation({
 export const move = mutation({
   args: { assetId: v.id("assets"), siteId: v.optional(v.id("sites")), locationId: v.optional(v.union(v.id("locations"), v.null())) },
   handler: async (ctx, { assetId, siteId, locationId }) => {
-    const { doc, user } = await loadForMember(ctx, assetId, "Asset", STAFF);
+    const { doc, user, membership } = await loadForMember(ctx, assetId, "Asset", STAFF);
     if (doc.status === "removed" || doc.status === "replaced") fail("This asset has been decommissioned");
     const targetSite = siteId ? await inOrg(ctx, siteId, doc.orgId, "Site") : await loadDoc(ctx, doc.siteId, "Site");
+    await requireSiteScope(ctx, membership, targetSite._id);
     if (targetSite.clientId !== doc.clientId) fail("Assets can only be moved between sites of the same client");
     if (targetSite.status !== "active") fail("Target site is archived");
     await checkLocation(ctx, targetSite._id, locationId ?? undefined);
@@ -263,10 +264,11 @@ export const move = mutation({
 export const decommission = mutation({
   args: { assetId: v.id("assets"), status: v.union(v.literal("removed"), v.literal("replaced")), reason: v.string(), replacementAssetId: v.optional(v.id("assets")) },
   handler: async (ctx, { assetId, status, reason, replacementAssetId }) => {
-    const { doc, user } = await loadForMember(ctx, assetId, "Asset", STAFF);
+    const { doc, user, membership } = await loadForMember(ctx, assetId, "Asset", STAFF);
     if (doc.status === "removed" || doc.status === "replaced") fail("Asset is already decommissioned");
     if (replacementAssetId) {
       const r = await inOrg(ctx, replacementAssetId, doc.orgId, "Replacement asset");
+      await requireSiteScope(ctx, membership, r.siteId);
       if (r._id === assetId) fail("An asset can't replace itself");
     }
     const why = str(reason, "Reason", 500);

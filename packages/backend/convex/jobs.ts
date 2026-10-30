@@ -1,8 +1,8 @@
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
-import { mutation, query, MutationCtx } from "./_generated/server";
+import { mutation, query, internalMutation, MutationCtx } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
-import { requireMember, canSeeSite } from "./lib/auth";
+import { requireMember, canSeeSite, syncJobAssignments } from "./lib/auth";
 import { discipline } from "./schema";
 import { advanceSchedule } from "./lib/schedules";
 import { assignmentWarnings } from "./lib/qualifications";
@@ -25,7 +25,7 @@ const TRANSITIONS: Record<Status, Status[]> = {
 };
 export const LOCKED: Status[] = ["completed", "invoiced", "cancelled"];
 
-/** Jobs by status (staff; client users see their own client's jobs). Paginated. */
+/** Jobs by status. Office+ all; engineers only jobs assigned to them; client users their own client's jobs. Paginated. */
 export const list = query({
   args: { orgId: v.id("organizations"), status: v.optional(jobStatus), siteId: v.optional(v.id("sites")), paginationOpts: paginationOptsValidator },
   handler: async (ctx, { orgId, status, siteId, paginationOpts }) => {
@@ -40,6 +40,19 @@ export const list = query({
         if (site && (await canSeeSite(ctx, membership, site))) out.push(j);
       }
       return { ...page, page: await withNames(ctx, out) };
+    }
+    if (membership.role === "engineer") {
+      // Engineers: only jobs they're assigned to (newest assignment first).
+      const uid = membership.userId;
+      const page = siteId
+        ? await ctx.db.query("jobAssignments").withIndex("by_org_and_user_and_site", (q) => q.eq("orgId", orgId).eq("userId", uid).eq("siteId", siteId)).order("desc").paginate(paginationOpts)
+        : await ctx.db.query("jobAssignments").withIndex("by_org_and_user", (q) => q.eq("orgId", orgId).eq("userId", uid)).order("desc").paginate(paginationOpts);
+      const jobs: Doc<"jobs">[] = [];
+      for (const a of page.page) {
+        const j = await ctx.db.get(a.jobId);
+        if (j && j.assignedEngineerIds.includes(uid) && (!status || j.status === status)) jobs.push(j);
+      }
+      return { ...page, page: await withNames(ctx, jobs) };
     }
     if (siteId) {
       const site = await inOrg(ctx, siteId, orgId, "Site");
@@ -141,6 +154,7 @@ export async function insertJob(
     purchaseOrderNumber: optStr(a.purchaseOrderNumber, "PO number", 60), createdBy: userId, createdAt: now, updatedAt: now,
     ...(a.autoCreated ? { autoCreated: true, scheduleDueAt: a.scheduleDueAt } : {}),
   });
+  await syncJobAssignments(ctx, { _id: id, orgId: site.orgId, siteId: site._id }, a.assignedEngineerIds);
   await audit(ctx, site.orgId, opts.system ? undefined : userId, "job.created", "job", id, { jobNumber, ...(opts.system ? { system: "service schedule automation" } : {}) });
   return id;
 }
@@ -172,6 +186,7 @@ export const assignEngineers = mutation({
     const tz = (await ctx.db.get(doc.orgId))?.timezone;
     const warnings = await assignmentWarnings(ctx, doc.orgId, ids, doc.disciplines, doc.scheduledStart ?? Date.now(), tz);
     await ctx.db.patch(jobId, { assignedEngineerIds: ids, updatedAt: Date.now() });
+    await syncJobAssignments(ctx, doc, ids);
     await audit(ctx, doc.orgId, user._id, "job.assigned", "job", jobId, { from: doc.assignedEngineerIds, to: ids, ...(warnings.length ? { qualificationWarnings: warnings.map((w) => w.message) } : {}) });
     /** Assignment always succeeds; `warnings` lists engineers not qualified for the job's disciplines. */
     return { warnings };
@@ -235,3 +250,13 @@ export async function applyStatus(ctx: MutationCtx, doc: Doc<"jobs">, status: St
     }
   }
 }
+
+/** One-off / idempotent: rebuild jobAssignments from jobs.assignedEngineerIds (batch by cursor). */
+export const backfillAssignments = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, { cursor }) => {
+    const page = await ctx.db.query("jobs").paginate({ cursor: cursor ?? null, numItems: 200 });
+    for (const j of page.page) await syncJobAssignments(ctx, j, j.assignedEngineerIds);
+    return { synced: page.page.length, isDone: page.isDone, continueCursor: page.continueCursor };
+  },
+});

@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query, QueryCtx } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
-import { requireMember, canSeeClient, canSeeSite } from "./lib/auth";
+import { requireMember, canSeeClient, canSeeSite, requireJobScope, requireSiteScope } from "./lib/auth";
 import { audit, fail, str, optStr, loadForMember, requireFile, geoV, STAFF, ANY } from "./lib/util";
 
 const entityType = v.union(v.literal("site"), v.literal("asset"), v.literal("job"), v.literal("visit"), v.literal("inspection"), v.literal("defect"), v.literal("certificate"), v.literal("quote"));
@@ -21,6 +21,23 @@ async function resolveEntity(ctx: QueryCtx, orgId: Id<"organizations">, type: En
   return { doc, site, clientId, locked: type === "certificate" && (doc as Doc<"certificates">).status !== "draft" && (doc as Doc<"certificates">).status !== "pending_signature" };
 }
 
+/**
+ * Engineers: job attachments only on jobs they're assigned to; site-scoped records only on
+ * sites of their assigned jobs; quote attachments never (office only).
+ */
+async function engineerScope(ctx: QueryCtx, membership: Doc<"memberships">, type: EntityType, target: { doc: { _id: string; orgId: Id<"organizations"> }; site: Doc<"sites"> | null }) {
+  if (membership.role !== "engineer") return;
+  if (type === "quote") fail("Insufficient permissions");
+  if (type === "job") requireJobScope(membership, target.doc as unknown as Doc<"jobs">);
+  if (type === "visit") {
+    const job = await ctx.db.get((target.doc as unknown as Doc<"visits">).jobId);
+    if (!job) fail("visit not found");
+    requireJobScope(membership, job);
+  }
+  if (target.site) await requireSiteScope(ctx, membership, target.site._id);
+  else if (type !== "job" && type !== "visit") fail("Insufficient permissions");
+}
+
 export const generateUploadUrl = mutation({
   args: { orgId: v.id("organizations") },
   handler: async (ctx, { orgId }) => {
@@ -38,12 +55,13 @@ export const attach = mutation({
     clientGeneratedId: v.optional(v.string()), capturedAt: v.optional(v.number()), deviceId: v.optional(v.string()),
   },
   handler: async (ctx, a) => {
-    const { user } = await requireMember(ctx, a.orgId, STAFF);
+    const { user, membership } = await requireMember(ctx, a.orgId, STAFF);
     if (a.clientGeneratedId) {
       const d = (await ctx.db.query("attachments").withIndex("by_client_generated_id", (q) => q.eq("clientGeneratedId", a.clientGeneratedId)).take(5)).find((x) => x.orgId === a.orgId);
       if (d) return d._id;
     }
     const target = await resolveEntity(ctx, a.orgId, a.entityType, a.entityId);
+    await engineerScope(ctx, membership, a.entityType, target);
     if (target.locked) fail("This certificate is issued; attachments can't be added");
     const meta = await requireFile(ctx, a.storageId, { maxBytes: 50 * 1024 * 1024, label: "File" });
     const mime = meta.contentType ?? "application/octet-stream";
@@ -67,6 +85,7 @@ export const listForEntity = query({
     const { membership } = await requireMember(ctx, orgId, ANY);
     const target = await resolveEntity(ctx, orgId, type, entityId);
     const isClient = membership.role === "client_user";
+    await engineerScope(ctx, membership, type, target);
     if (isClient && (!target.clientId || !canSeeClient(membership, target.clientId) || (target.site && !(await canSeeSite(ctx, membership, target.site))))) fail(`${type} not found`);
     const rows = await ctx.db.query("attachments").withIndex("by_entity", (q) => q.eq("entityType", type).eq("entityId", target.doc._id)).take(500);
     const visible = isClient ? rows.filter((r) => r.visibleToClient) : rows;
@@ -77,7 +96,8 @@ export const listForEntity = query({
 export const update = mutation({
   args: { attachmentId: v.id("attachments"), caption: v.optional(v.string()), visibleToClient: v.optional(v.boolean()) },
   handler: async (ctx, { attachmentId, caption, visibleToClient }) => {
-    const { doc, user } = await loadForMember(ctx, attachmentId, "Attachment", STAFF);
+    const { doc, user, membership } = await loadForMember(ctx, attachmentId, "Attachment", STAFF);
+    if (membership.role === "engineer") await engineerScope(ctx, membership, doc.entityType, await resolveEntity(ctx, doc.orgId, doc.entityType, doc.entityId));
     await ctx.db.patch(attachmentId, { ...(caption !== undefined ? { caption: optStr(caption, "Caption", 500) } : {}), ...(visibleToClient !== undefined ? { visibleToClient } : {}) });
     await audit(ctx, doc.orgId, user._id, "attachment.updated", "attachment", attachmentId, { caption, visibleToClient });
   },
@@ -89,6 +109,7 @@ export const remove = mutation({
   handler: async (ctx, { attachmentId }) => {
     const { doc, user, membership } = await loadForMember(ctx, attachmentId, "Attachment", STAFF);
     if (membership.role === "engineer" && doc.uploadedBy !== user._id) fail("Only the uploader or the office can delete this file");
+    if (membership.role === "engineer") await engineerScope(ctx, membership, doc.entityType, await resolveEntity(ctx, doc.orgId, doc.entityType, doc.entityId));
     const target = await resolveEntity(ctx, doc.orgId, doc.entityType, doc.entityId).catch(() => null);
     if (target?.locked) fail("Files on an issued certificate can't be deleted");
     await ctx.db.delete(attachmentId);

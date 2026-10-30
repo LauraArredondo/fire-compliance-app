@@ -1,8 +1,10 @@
 "use client";
 
-import { errorMessage } from "@/lib/errors";
+import { errorMessage, isAccessError } from "@/lib/errors";
+import { NotAvailable } from "@/components/NotAvailable";
 
 export default function ErrorPage({ error, reset }: { error: Error; reset: () => void }) {
+  if (isAccessError(error)) return <div className="mx-auto max-w-lg px-4 py-16"><NotAvailable home="/app" /></div>;
   return (
     <div className="mx-auto max-w-lg px-4 py-16 text-center">
       <h1 className="text-lg font-semibold text-slate-900">Something went wrong</h1>

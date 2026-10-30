@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { TableNames, Doc, Id } from "../_generated/dataModel";
 import { MutationCtx, QueryCtx } from "../_generated/server";
-import { requireMember, canSeeClient } from "./auth";
+import { requireMember, canSeeClient, requireJobScope, requireSiteScope } from "./auth";
 
 type Ctx = QueryCtx | MutationCtx;
 
@@ -27,6 +27,8 @@ export const STAFF: Role[] = ["owner", "admin", "office", "engineer"];
 export const OFFICE: Role[] = ["owner", "admin", "office"];
 export const MANAGERS: Role[] = ["owner", "admin"];
 export const ANY: Role[] = ["owner", "admin", "office", "engineer", "client_user"];
+/** Office+ and portal users (engineers refused: quotes, invoices). */
+export const OFFICE_OR_CLIENT: Role[] = ["owner", "admin", "office", "client_user"];
 
 export const DAY = 24 * 60 * 60 * 1000;
 
@@ -64,7 +66,7 @@ export async function loadDoc<T extends TableNames>(ctx: Ctx, id: Id<T>, label: 
   return d;
 }
 
-/** Load a record, require org membership (optionally specific roles) and client scoping. */
+/** Load a record, require org membership (optionally specific roles), client scoping and engineer scoping (assigned jobs / their sites). */
 export async function loadForMember<T extends TableNames>(ctx: Ctx, id: Id<T>, label: string, roles?: Role[]) {
   const doc = await loadDoc(ctx, id, label);
   const orgId = (doc as unknown as { orgId?: Id<"organizations"> }).orgId;
@@ -72,6 +74,15 @@ export async function loadForMember<T extends TableNames>(ctx: Ctx, id: Id<T>, l
   const { user, membership } = await requireMember(ctx, orgId, roles);
   const clientId = (doc as unknown as { clientId?: Id<"clients"> }).clientId;
   if (clientId && !canSeeClient(membership, clientId)) fail(`${label} not found`);
+  if (membership.role === "engineer") {
+    // Engineers: jobs they're assigned to; site-scoped records only on sites of their assigned jobs.
+    if (ctx.db.normalizeId("jobs", id as string)) requireJobScope(membership, doc as unknown as Doc<"jobs">);
+    else if (ctx.db.normalizeId("sites", id as string)) await requireSiteScope(ctx, membership, id as unknown as Id<"sites">);
+    else {
+      const siteId = (doc as unknown as { siteId?: Id<"sites"> }).siteId;
+      if (siteId) await requireSiteScope(ctx, membership, siteId);
+    }
+  }
   return { doc, user, membership, orgId };
 }
 

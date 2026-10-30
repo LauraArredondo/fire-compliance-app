@@ -835,11 +835,11 @@ export const unsubscribe = internalMutation({
 
 const reminderStatus = v.union(v.literal("pending"), v.literal("dispatched"), v.literal("no_recipients"), v.literal("dismissed"), v.literal("cancelled"));
 
-/** Reminders by status (default: pending = upcoming), soonest first; dispatched ones newest first. */
+/** Reminders by status (default: pending = upcoming), soonest first; dispatched ones newest first. Office+ only. */
 export const list = query({
   args: { orgId: v.id("organizations"), status: v.optional(reminderStatus), limit: v.optional(v.number()) },
   handler: async (ctx, { orgId, status, limit }) => {
-    await requireMember(ctx, orgId, [...STAFF]);
+    await requireMember(ctx, orgId, [...OFFICE]);
     const st = status ?? "pending";
     const q = ctx.db.query("reminders").withIndex("by_org_and_status_and_send_at", (q) => q.eq("orgId", orgId).eq("status", st));
     const rows = await (st === "pending" ? q.order("asc") : q.order("desc")).take(Math.min(limit ?? 100, 500));
@@ -851,35 +851,35 @@ export const list = query({
   },
 });
 
-/** Notification log (sent / dry-run / skipped / failed), newest first. */
+/** Notification log (sent / dry-run / skipped / failed), newest first. Office+ only. */
 export const listNotifications = query({
   args: { orgId: v.id("organizations"), limit: v.optional(v.number()) },
   handler: async (ctx, { orgId, limit }) => {
-    await requireMember(ctx, orgId, [...STAFF]);
+    await requireMember(ctx, orgId, [...OFFICE]);
     const rows = await ctx.db.query("notifications").withIndex("by_org_and_created", (q) => q.eq("orgId", orgId)).order("desc").take(Math.min(limit ?? 100, 500));
     return rows.map(({ html, body, unsubscribeToken, ...n }) => n);
   },
 });
 
-/** One notification including its rendered HTML / text (preview). */
+/** One notification including its rendered HTML / text (preview). Office+ only. */
 export const getNotification = query({
   args: { notificationId: v.id("notifications") },
   handler: async (ctx, { notificationId }) => {
     const n = await ctx.db.get(notificationId);
     if (!n) throw new Error("Not found");
-    await requireMember(ctx, n.orgId, [...STAFF]);
+    await requireMember(ctx, n.orgId, [...OFFICE]);
     const { unsubscribeToken, ...rest } = n;
     return rest;
   },
 });
 
-/** Postpone a pending reminder by N days (sent at 07:00 UK time on that day). */
+/** Postpone a pending reminder by N days (sent at 07:00 UK time on that day). Office+ only. */
 export const snooze = mutation({
   args: { reminderId: v.id("reminders"), days: v.number() },
   handler: async (ctx, { reminderId, days }) => {
     const r = await ctx.db.get(reminderId);
     if (!r) throw new Error("Reminder not found");
-    const { user } = await requireMember(ctx, r.orgId, [...STAFF]);
+    const { user } = await requireMember(ctx, r.orgId, [...OFFICE]);
     if (r.status !== "pending") throw new Error("Only pending reminders can be snoozed");
     if (days < 1 || days > 90) throw new Error("Snooze between 1 and 90 days");
     const until = londonMorning(Date.now(), Math.round(days));
@@ -889,13 +889,13 @@ export const snooze = mutation({
   },
 });
 
-/** Dismiss a pending reminder; it will not be recreated for the same stage. */
+/** Dismiss a pending reminder; it will not be recreated for the same stage. Office+ only. */
 export const dismiss = mutation({
   args: { reminderId: v.id("reminders"), reason: v.optional(v.string()) },
   handler: async (ctx, { reminderId, reason }) => {
     const r = await ctx.db.get(reminderId);
     if (!r) throw new Error("Reminder not found");
-    const { user } = await requireMember(ctx, r.orgId, [...STAFF]);
+    const { user } = await requireMember(ctx, r.orgId, [...OFFICE]);
     if (r.status !== "pending") throw new Error("Only pending reminders can be dismissed");
     await ctx.db.patch(reminderId, { status: "dismissed", dismissedBy: user._id, cancelReason: reason });
     await ctx.db.insert("auditLog", { orgId: r.orgId, actorUserId: user._id, action: "reminder.dismissed", entityType: "reminder", entityId: reminderId, changes: { reason }, at: Date.now() });

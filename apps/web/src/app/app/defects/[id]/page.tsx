@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { api, type Id } from "@/lib/api";
-import { useOrg } from "@/lib/session";
 import { DEFECT_SEVERITIES, disciplineLabel, humanize } from "@/lib/labels";
 import { NotAvailable } from "@/components/NotAvailable";
-import { useAssignedScope, usePermissions } from "@/lib/permissions";
+import { useSafeQuery } from "@/lib/useSafeQuery";
+import { usePermissions } from "@/lib/permissions";
 import { date, dateTime, fromDateInput, opt, toDateInput } from "@/lib/format";
 import { errorMessage } from "@/lib/errors";
 import { ActionButton, Button, Card, Checkbox, DL, ErrorBox, Field, Input, LinkButton, Loading, PageHeader, Select, StatusBadge, Textarea } from "@/components/ui";
@@ -19,15 +19,14 @@ const OPEN = ["open", "quoted", "scheduled", "in_progress"];
 export default function DefectPage() {
   const { id } = useParams<{ id: Id<"defects"> }>();
   const perms = usePermissions();
-  const scope = useAssignedScope();
   const office = perms.can("defects.verifyClose");
-  const d = useQuery(api.defects.get, { defectId: id });
+  const { data: d, denied } = useSafeQuery(api.defects.get, { defectId: id });
   const setStatus = useMutation(api.defects.setStatus);
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  if (!d || !scope.ready) return <Loading />;
-  // Engineers only see defects at the sites of their own jobs.
-  if (!scope.canSeeSite(d.siteId)) return <NotAvailable what="defect" />;
+  // Engineers only see defects at the sites of their own jobs (enforced by the backend).
+  if (denied) return <NotAvailable what="defect" />;
+  if (!d) return <Loading />;
   const closed = d.status === "verified" || d.status === "closed_no_action";
   const to = (status: string, needNotes?: boolean) => async () => {
     let notes: string | undefined;

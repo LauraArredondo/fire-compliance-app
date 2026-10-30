@@ -7,7 +7,8 @@ import { api, type Id } from "@/lib/api";
 import { useOrg } from "@/lib/session";
 import { OVERALL_RESULTS, disciplineLabel } from "@/lib/labels";
 import { NotAvailable } from "@/components/NotAvailable";
-import { useAssignedScope, usePermissions } from "@/lib/permissions";
+import { useSafeQuery } from "@/lib/useSafeQuery";
+import { usePermissions } from "@/lib/permissions";
 import { date, dateTime, fromDateInput, opt, toDateInput } from "@/lib/format";
 import { errorMessage } from "@/lib/errors";
 import { ActionButton, Badge, Button, Card, DL, ErrorBox, Field, Input, Loading, Notice, PageHeader, Select, StatusBadge, Textarea } from "@/components/ui";
@@ -21,8 +22,7 @@ export default function CertificatePage() {
   const { id } = useParams<{ id: Id<"certificates"> }>();
   const router = useRouter();
   const perms = usePermissions();
-  const scope = useAssignedScope();
-  const cert = useQuery(api.certificates.get, { certificateId: id });
+  const { data: cert, denied } = useSafeQuery(api.certificates.get, { certificateId: id });
   const issued = cert?.status === "issued";
   const pdf = useQuery(api.certificates.getPdf, cert && !cert.editable ? { certificateId: id } : "skip");
   const qual = useQuery(api.certificates.qualificationCheck, cert?.editable ? { certificateId: id } : "skip");
@@ -34,9 +34,9 @@ export default function CertificatePage() {
   const [error, setError] = useState<string | null>(null);
   const [issueReason, setIssueReason] = useState("");
 
-  if (!cert || !scope.ready) return <Loading />;
-  // Engineers only see certificates for the sites of their own jobs.
-  if (!scope.canSeeSite(cert.siteId)) return <NotAvailable what="certificate" />;
+  // Engineers only see certificates for the sites of their own jobs (enforced by the backend).
+  if (denied) return <NotAvailable what="certificate" />;
+  if (!cert) return <Loading />;
   const engineerSigned = !!cert.engineerSignature;
   const needsOverride = !!qual && !qual.qualified && !qual.coveredByPriorOverride;
 

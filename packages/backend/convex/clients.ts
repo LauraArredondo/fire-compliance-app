@@ -1,16 +1,36 @@
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import { mutation, query } from "./_generated/server";
-import { requireMember } from "./lib/auth";
+import { Id } from "./_generated/dataModel";
+import { requireMember, assignedSiteIds } from "./lib/auth";
 import { audit, fail, str, optStr, emails, cleanAddress, cleanContact, addressV, contactV, defined, loadForMember, STAFF, OFFICE, ANY } from "./lib/util";
 
 const clientType = v.union(v.literal("commercial"), v.literal("residential"), v.literal("public_sector"), v.literal("managing_agent"));
 
-/** Clients (staff). Paginated, newest first; `search` uses the name search index. */
+/**
+ * Clients. Office+: full records, paginated newest first; `search` uses the name search index.
+ * Engineers: only clients of their assigned jobs' sites, as `{ _id, name }` (single page).
+ */
 export const list = query({
   args: { orgId: v.id("organizations"), status: v.optional(v.union(v.literal("active"), v.literal("archived"))), search: v.optional(v.string()), paginationOpts: paginationOptsValidator },
   handler: async (ctx, { orgId, status, search, paginationOpts }) => {
-    await requireMember(ctx, orgId, STAFF);
+    const { membership } = await requireMember(ctx, orgId, STAFF);
+    if (membership.role === "engineer") {
+      if (paginationOpts.cursor) return { page: [], isDone: true, continueCursor: "end" };
+      const term = search?.trim().toLowerCase();
+      const seen = new Set<string>();
+      const out: { _id: Id<"clients">; name: string }[] = [];
+      for (const sid of await assignedSiteIds(ctx, orgId, membership.userId)) {
+        const site = await ctx.db.get(sid);
+        if (!site || seen.has(site.clientId)) continue;
+        seen.add(site.clientId);
+        const c = await ctx.db.get(site.clientId);
+        if (!c || c.orgId !== orgId || c.status !== (status ?? "active") || (term && !c.name.toLowerCase().includes(term))) continue;
+        out.push({ _id: c._id, name: c.name });
+      }
+      out.sort((a, b) => a.name.localeCompare(b.name));
+      return { page: out, isDone: true, continueCursor: "end" };
+    }
     if (search?.trim()) {
       return await ctx.db.query("clients").withSearchIndex("search_name", (q) => q.search("name", search.trim()).eq("orgId", orgId)).paginate(paginationOpts);
     }
@@ -18,13 +38,23 @@ export const list = query({
   },
 });
 
-/** One client (staff, or that client's own portal users). */
+/**
+ * One client. Office+: full record. Engineers: `{ _id, name }` only, and only for clients of their
+ * assigned jobs' sites. Portal users: their own client without notes / account number / accounting id.
+ */
 export const get = query({
   args: { clientId: v.id("clients") },
   handler: async (ctx, { clientId }) => {
     const { doc, membership } = await loadForMember(ctx, clientId, "Client", ANY);
+    if (membership.role === "engineer") {
+      const sites = await assignedSiteIds(ctx, doc.orgId, membership.userId);
+      let ok = false;
+      for (const sid of sites) if ((await ctx.db.get(sid))?.clientId === clientId) { ok = true; break; }
+      if (!ok) fail("You're not assigned to a job for this client");
+      return { _id: doc._id, name: doc.name };
+    }
     if (membership.role === "client_user") {
-      const { notes, externalAccountingId, ...visible } = doc;
+      const { notes, externalAccountingId, accountNumber, ...visible } = doc;
       return visible;
     }
     return doc;

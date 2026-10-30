@@ -8,6 +8,7 @@ import { useOrg } from "@/lib/session";
 import { disciplineLabel, humanize, jobStatusLabel } from "@/lib/labels";
 import { useAssignedScope, usePermissions } from "@/lib/permissions";
 import { NotAvailable } from "@/components/NotAvailable";
+import { useSafeQuery } from "@/lib/useSafeQuery";
 import { address, date, dateTime, opt } from "@/lib/format";
 import { errorMessage } from "@/lib/errors";
 import { ActionButton, Badge, Button, Card, DL, ErrorBox, Field, Input, LinkButton, Loading, LoadMore, PageHeader, Select, StatusBadge, Table } from "@/components/ui";
@@ -21,18 +22,20 @@ export default function SiteDetailPage() {
   const perms = usePermissions();
   const scope = useAssignedScope();
   const office = perms.can("sites.manage");
-  const site = useQuery(api.sites.get, { siteId: id });
-  const assets = usePaginatedQuery(api.assets.list, { siteId: id }, { initialNumItems: 25 });
-  const defects = useQuery(api.defects.openForSite, { orgId, siteId: id });
-  const certs = useQuery(api.certificates.listBySite, { orgId, siteId: id });
-  const schedules = useQuery(api.serviceSchedules.list, !perms.can("schedules.view") ? "skip" : { orgId, siteId: id, paginationOpts: { numItems: 50, cursor: null } });
-  const jobs = useQuery(api.jobs.list, !perms.can("jobs.viewAll") ? "skip" : { orgId, siteId: id, paginationOpts: { numItems: 20, cursor: null } });
+  const { data: site, denied } = useSafeQuery(api.sites.get, { siteId: id });
+  // Only load the rest once the backend has let us see the site.
+  const ok = !!site;
+  const assets = usePaginatedQuery(api.assets.list, ok ? { siteId: id } : "skip", { initialNumItems: 25 });
+  const defects = useQuery(api.defects.openForSite, ok ? { orgId, siteId: id } : "skip");
+  const certs = useQuery(api.certificates.listBySite, ok ? { orgId, siteId: id } : "skip");
+  const schedules = useQuery(api.serviceSchedules.list, !ok || !perms.can("schedules.view") ? "skip" : { orgId, siteId: id, paginationOpts: { numItems: 50, cursor: null } });
+  const jobs = useQuery(api.jobs.list, !ok || !perms.can("jobs.viewAll") ? "skip" : { orgId, siteId: id, paginationOpts: { numItems: 20, cursor: null } });
   const setArchived = useMutation(api.sites.setArchived);
   const [addingAsset, setAddingAsset] = useState(false);
 
+  // Engineers only see the sites of their own jobs (enforced by the backend).
+  if (denied) return <NotAvailable what="site" />;
   if (!site || !scope.ready) return <Loading />;
-  // Engineers only see the sites of their own jobs.
-  if (!scope.canSeeSite(site._id)) return <NotAvailable what="site" />;
   const myJobsHere = scope.assignedOnly ? (scope.jobs ?? []).filter((j) => j.siteId === site._id) : undefined;
   const archived = site.status === "archived";
   const locName = (lid?: string) => site.locations.find((l) => l._id === lid)?.name ?? "—";

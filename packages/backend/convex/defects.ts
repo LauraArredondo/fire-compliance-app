@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import { mutation, query } from "./_generated/server";
 import { Doc } from "./_generated/dataModel";
-import { requireMember, canSeeClient, canSeeSite } from "./lib/auth";
+import { requireMember, canSeeClient, canSeeSite, requireSiteScope, assignedSiteIds } from "./lib/auth";
 import { discipline } from "./schema";
 import { audit, withNames, fail, str, optStr, defined, loadDoc, loadForMember, inOrg, nextNumber, requireFile, IMAGE, STAFF, OFFICE, ANY } from "./lib/util";
 
@@ -24,7 +24,7 @@ export const openForSite = query({
   },
 });
 
-/** Defects by status, org-wide (staff) or for the client user's client. Paginated. */
+/** Defects by status: org-wide (office+), sites of assigned jobs (engineers), or the client user's client. Paginated. */
 export const list = query({
   /** status: omitted = "open" (unchanged default); "all" = every status, newest first. */
   args: { orgId: v.id("organizations"), status: v.optional(v.union(status, v.literal("all"))), siteId: v.optional(v.id("sites")), paginationOpts: paginationOptsValidator },
@@ -44,12 +44,18 @@ export const list = query({
     }
     if (siteId) {
       await inOrg(ctx, siteId, orgId, "Site");
+      await requireSiteScope(ctx, membership, siteId);
       const page = await ctx.db.query("defects").withIndex("by_site_and_status", (q) => (all ? q.eq("siteId", siteId) : q.eq("siteId", siteId).eq("status", s))).order("desc").paginate(paginationOpts);
       return { ...page, page: await withNames(ctx, page.page) };
     }
     const page = all
       ? await ctx.db.query("defects").withIndex("by_org", (q) => q.eq("orgId", orgId)).order("desc").paginate(paginationOpts)
       : await ctx.db.query("defects").withIndex("by_org_and_status", (q) => q.eq("orgId", orgId).eq("status", s)).order("desc").paginate(paginationOpts);
+    if (membership.role === "engineer") {
+      // Engineers: only defects on sites of their assigned jobs (pages may be shorter than numItems).
+      const allowed = new Set<string>(await assignedSiteIds(ctx, orgId, membership.userId));
+      return { ...page, page: await withNames(ctx, page.page.filter((d) => allowed.has(d.siteId))) };
+    }
     return { ...page, page: await withNames(ctx, page.page) };
   },
 });

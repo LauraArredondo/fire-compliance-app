@@ -54,10 +54,12 @@ Map mobile tabs to the same permission keys (`dashboard.view`, `jobs.viewAssigne
 `certificates.viewAssigned`, `profile.view`, …) rather than checking role names directly. Expo/Metro
 needs `watchFolders` pointing at `packages/shared` (monorepo) — the package ships TypeScript source.
 
-## Important: the backend must enforce this too
+## Backend enforcement
 
-Hiding screens is not security. Today several Convex functions still return data to engineers that
-the apps hide (all jobs, all sites, clients, quotes with prices, bank details, schedules, reminders)
-and let engineers raise defects / create certificates at any site. The list of gaps is in the
-"Role-based access" section of the root `README.md` — these need fixing in the Convex project
-before the mobile app ships.
+The Convex backend enforces the same rules server-side (see "Role scoping (server-enforced)" in
+`packages/backend/API.md`). The mobile app must treat these errors as "not available for your role",
+not as crashes: `You're not assigned to this job`, `You're not assigned to a job at this site`,
+`Site not found`, `You're not assigned to a job for this client`, `Insufficient permissions`.
+Also: `defects:list` / `certificates:list` pages can be shorter than `numItems` for engineers — page
+until `isDone`, don't stop on a short page. Engineers get clients as `{ _id, name }` only.
+The web helpers to copy are `isAccessError` (`apps/web/src/lib/errors.ts`) and `useSafeQuery`.

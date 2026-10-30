@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { usePaginatedQuery } from "convex/react";
 import { api } from "@/lib/api";
+import { fullClient } from "@/lib/permissions";
 import { useOrg } from "@/lib/session";
 import { OFFICE, humanize } from "@/lib/labels";
 import { address } from "@/lib/format";
@@ -21,7 +22,7 @@ export default function ClientsPage() {
           <FilterTabs value={status} onChange={setStatus} options={["active", "archived"] as const} allowAll={false} />
           <Input className="max-w-xs" placeholder="Search by name…" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-        <Table rows={st === "LoadingFirstPage" ? undefined : results} href={(c) => `/app/clients/${c._id}`} empty="No clients yet." columns={[
+        <Table rows={st === "LoadingFirstPage" ? undefined : results.map(fullClient).filter((c) => c !== null)} href={(c) => `/app/clients/${c._id}`} empty="No clients yet." columns={[
           { header: "Name", cell: (c) => c.name },
           { header: "Type", cell: (c) => humanize(c.type) },
           { header: "Contact", cell: (c) => c.primaryContact ? `${c.primaryContact.name}${c.primaryContact.email ? ` · ${c.primaryContact.email}` : ""}` : "—" },

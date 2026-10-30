@@ -1,5 +1,5 @@
 import { v, ConvexError } from "convex/values";
-import { query, mutation, internalQuery, internalMutation, MutationCtx } from "./_generated/server";
+import { query, mutation, internalQuery, internalMutation, MutationCtx, QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Doc, Id } from "./_generated/dataModel";
 import { requireMember, canSeeClient } from "./lib/auth";
@@ -7,7 +7,17 @@ import { newPublicToken } from "./lib/tokens";
 import { advanceSchedulesForCertificate } from "./lib/schedules";
 import { checkQualification } from "./lib/qualifications";
 import { paginationOptsValidator } from "convex/server";
-import { canSeeSite } from "./lib/auth";
+import { canSeeSite, requireSiteScope, requireJobScope, assignedSiteIds, engineerHasSite, OFFICE_ROLES } from "./lib/auth";
+
+/** Engineers: certificate must be on a site of an assigned job, and if it belongs to a job, they must be assigned to it. */
+async function requireCertScope(ctx: QueryCtx, membership: Doc<"memberships">, cert: Doc<"certificates">) {
+  if (membership.role !== "engineer") return;
+  await requireSiteScope(ctx, membership, cert.siteId);
+  if (cert.jobId) {
+    const job = await ctx.db.get(cert.jobId);
+    if (job) requireJobScope(membership, job);
+  }
+}
 import * as U from "./lib/util";
 import { buildCertificateVerification, buildAssetStatus, buildSiteStatus, certificateVerifyUrl } from "./lib/verification";
 
@@ -35,7 +45,7 @@ export const listBySite = query({
   handler: async (ctx, { orgId, siteId }) => {
     const { membership } = await requireMember(ctx, orgId);
     const site = await ctx.db.get(siteId);
-    if (!site || site.orgId !== orgId || !canSeeClient(membership, site.clientId)) {
+    if (!site || site.orgId !== orgId || !canSeeClient(membership, site.clientId) || !(await canSeeSite(ctx, membership, site))) {
       throw new ConvexError("Site not found");
     }
     const certs = await ctx.db
@@ -66,6 +76,11 @@ export const getPdf = query({
     if (membership.role === "client_user" && (cert.status === "draft" || cert.status === "pending_signature")) {
       throw new ConvexError("Certificate not found");
     }
+    if (membership.role === "client_user") {
+      const site = await ctx.db.get(cert.siteId);
+      if (!site || !(await canSeeSite(ctx, membership, site))) throw new ConvexError("Certificate not found");
+    }
+    await requireCertScope(ctx, membership, cert);
     return {
       status: cert.status,
       pdfStatus: cert.pdfStatus ?? null,
@@ -141,6 +156,7 @@ export const issue = mutation({
     const cert = await ctx.db.get(certificateId);
     if (!cert) throw new ConvexError("Certificate not found");
     const { user, membership } = await requireMember(ctx, cert.orgId, [...STAFF]);
+    await requireCertScope(ctx, membership, cert);
     if (cert.status !== "draft" && cert.status !== "pending_signature") {
       throw new ConvexError(`Certificate is already ${cert.status}`);
     }
@@ -210,7 +226,7 @@ export const reissue = mutation({
   handler: async (ctx, { certificateId, reason }) => {
     const cert = await ctx.db.get(certificateId);
     if (!cert) throw new ConvexError("Certificate not found");
-    const { user } = await requireMember(ctx, cert.orgId, [...STAFF]);
+    const { user } = await requireMember(ctx, cert.orgId, OFFICE_ROLES);
     if (cert.status !== "issued") throw new ConvexError("Only issued certificates can be reissued");
     const revision = (cert.revision ?? 0) + 1;
     const baseNumber = cert.certificateNumber.replace(/\/R\d+$/, "");
@@ -456,6 +472,8 @@ export const prepareLabel = internalMutation({
     if (!membership || membership.status !== "active" || membership.role === "client_user") {
       throw new ConvexError("Insufficient permissions");
     }
+    const labelSiteId = assetId ? (target as Doc<"assets">).siteId : (target as Doc<"sites">)._id;
+    if (membership.role === "engineer" && !(await engineerHasSite(ctx, target.orgId, userId, labelSiteId))) throw new ConvexError("You're not assigned to a job at this site");
     const org = await ctx.db.get(target.orgId);
     if (assetId) {
       const asset = target as Doc<"assets">;
@@ -501,7 +519,7 @@ const certStatus = v.union(v.literal("draft"), v.literal("pending_signature"), v
 const overall = v.union(v.literal("satisfactory"), v.literal("unsatisfactory"), v.literal("satisfactory_with_observations"));
 const EDITABLE: Doc<"certificates">["status"][] = ["draft", "pending_signature"];
 
-/** Certificates by status (staff; client users see their client's issued ones). Paginated, newest first. */
+/** Certificates by status (office+ all; engineers those on sites of their assigned jobs; client users their client's issued ones). Paginated, newest first. */
 export const list = query({
   /** status: omitted = "issued" (unchanged default); "all" = every status, newest first. */
   args: { orgId: v.id("organizations"), status: v.optional(v.union(certStatus, v.literal("all"))), paginationOpts: paginationOptsValidator },
@@ -521,7 +539,11 @@ export const list = query({
     const page = st === "all"
       ? await ctx.db.query("certificates").withIndex("by_org", (q) => q.eq("orgId", orgId)).order("desc").paginate(paginationOpts)
       : await ctx.db.query("certificates").withIndex("by_org_and_status", (q) => q.eq("orgId", orgId).eq("status", status ?? "issued")).order("desc").paginate(paginationOpts);
-    return { ...page, page: await U.withNames(ctx, page.page.map(stripChecks)) };
+    // Engineers: only certificates on sites of their assigned jobs (pages may be shorter than numItems).
+    const rows = membership.role === "engineer"
+      ? await (async () => { const allowed = new Set<string>(await assignedSiteIds(ctx, orgId, membership.userId)); return page.page.filter((c) => allowed.has(c.siteId)); })()
+      : page.page;
+    return { ...page, page: await U.withNames(ctx, rows.map(stripChecks)) };
   },
 });
 
@@ -529,6 +551,7 @@ export const get = query({
   args: { certificateId: v.id("certificates") },
   handler: async (ctx, { certificateId }) => {
     const { doc, membership } = await U.loadForMember(ctx, certificateId, "Certificate", U.ANY);
+    await requireCertScope(ctx, membership, doc);
     const site = await U.loadDoc(ctx, doc.siteId, "Site");
     if (membership.role === "client_user" && (EDITABLE.includes(doc.status) || !(await canSeeSite(ctx, membership, site)))) U.fail("Certificate not found");
     const type = await ctx.db.get(doc.certificateTypeId);
@@ -577,7 +600,8 @@ export const createDraft = mutation({
     if (visit && job && visit.jobId !== job._id) U.fail("That visit belongs to another job");
     const siteId = job?.siteId ?? a.siteId;
     if (!siteId) U.fail("Pass a jobId, visitId or siteId");
-    const { doc: site, user } = await U.loadForMember(ctx, siteId, "Site", U.STAFF);
+    const { doc: site, user, membership } = await U.loadForMember(ctx, siteId, "Site", U.STAFF);
+    if (job) requireJobScope(membership, job);
     if (a.siteId && a.siteId !== site._id) U.fail("Site doesn't match the job");
     const type = await U.loadDoc(ctx, a.certificateTypeId, "Certificate type");
     if ((type.orgId && type.orgId !== site.orgId) || !type.isActive) U.fail("Certificate type not found");
@@ -619,7 +643,8 @@ export const updateDraft = mutation({
     inspectionDate: v.optional(v.number()), expiresAt: v.optional(v.number()), nextInspectionDueAt: v.optional(v.number()),
   },
   handler: async (ctx, { certificateId, ...a }) => {
-    const { doc, user } = await U.loadForMember(ctx, certificateId, "Certificate", U.STAFF);
+    const { doc, user, membership } = await U.loadForMember(ctx, certificateId, "Certificate", U.STAFF);
+    await requireCertScope(ctx, membership, doc);
     if (!EDITABLE.includes(doc.status)) U.fail(`This certificate is ${doc.status} and can't be edited`);
     const merge = <T,>(base: T[], set?: T[], add?: T[]) => (set || add ? [...new Set([...(set ?? base), ...(add ?? [])])] : undefined);
     const assetIds = merge(doc.assetIds, a.assetIds, a.addAssetIds);
@@ -652,6 +677,7 @@ export const sign = mutation({
   },
   handler: async (ctx, { certificateId, as, signature, qualificationOverrideReason }) => {
     const { doc, user, membership } = await U.loadForMember(ctx, certificateId, "Certificate", U.STAFF);
+    await requireCertScope(ctx, membership, doc);
     if (!EDITABLE.includes(doc.status)) U.fail(`This certificate is ${doc.status}`);
     const type = await U.loadDoc(ctx, doc.certificateTypeId, "Certificate type");
     if (as === "engineer") {
@@ -685,6 +711,7 @@ export const qualificationCheck = query({
   args: { certificateId: v.id("certificates"), engineerUserId: v.optional(v.id("users")) },
   handler: async (ctx, { certificateId, engineerUserId }) => {
     const { doc, user, membership } = await U.loadForMember(ctx, certificateId, "Certificate", U.STAFF);
+    await requireCertScope(ctx, membership, doc);
     const org = await ctx.db.get(doc.orgId);
     const target = engineerUserId ?? doc.engineerSignature?.signedByUserId ?? user._id;
     const r = await checkQualification(ctx, doc.orgId, target, doc.discipline, Date.now(), org?.timezone);

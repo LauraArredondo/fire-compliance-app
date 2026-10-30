@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { useQuery } from "convex/react";
+import { usePaginatedQuery, useQuery } from "convex/react";
 import { SiteName } from "@/components/Refs";
 import { api } from "@/lib/api";
 import { useOrg } from "@/lib/session";
+import { useTopUp } from "@/lib/useTopUp";
 import { DENIED_PARAM, useAssignedScope, usePermissions } from "@/lib/permissions";
 import { date, dateTime, money } from "@/lib/format";
 import { disciplineLabel, jobStatusLabel } from "@/lib/labels";
@@ -36,12 +37,14 @@ const startOfDay = (ms: number) => { const d = new Date(ms); d.setHours(0, 0, 0,
 function EngineerDashboard() {
   const { orgId, me, membership } = useOrg();
   const scope = useAssignedScope();
-  const defects = useQuery(api.defects.list, { orgId, status: "open", paginationOpts: { numItems: 100, cursor: null } });
+  // Filtered to my sites by the backend; pages can be short, so top up rather than trust one page.
+  const defectsP = usePaginatedQuery(api.defects.list, { orgId, status: "open" }, { initialNumItems: 25 });
+  useTopUp(defectsP, 10);
   const today0 = startOfDay(Date.now()), tomorrow0 = today0 + 864e5;
   const open = (scope.jobs ?? []).filter((j) => !["completed", "invoiced", "cancelled"].includes(j.status));
   const today = scope.jobs && open.filter((j) => j.status === "in_progress" || j.status === "on_hold" || ((j.scheduledStart ?? 0) >= today0 && (j.scheduledStart ?? 0) < tomorrow0) || (j.scheduledStart ?? 0) < today0);
   const upcoming = scope.jobs && open.filter((j) => !today!.includes(j));
-  const myDefects = defects && scope.ready ? defects.page.filter((d) => scope.canSeeSite(d.siteId)) : undefined;
+  const myDefects = defectsP.status === "LoadingFirstPage" ? undefined : defectsP.results.slice(0, 10);
   const cols = [
     { header: "Job", cell: (j: NonNullable<typeof today>[number]) => `${j.jobNumber} · ${j.title}` },
     { header: "Site", cell: (j: NonNullable<typeof today>[number]) => j.siteName },
@@ -74,7 +77,7 @@ function Dashboard() {
   const { orgId, me, membership } = useOrg();
   const perms = usePermissions();
   const office = perms.can("jobs.manage");
-  const due = useQuery(api.serviceSchedules.dueSoon, { orgId, days: 30 });
+  const due = useQuery(api.serviceSchedules.dueSoon, perms.can("schedules.view") ? { orgId, days: 30 } : "skip");
   const mine = useQuery(api.jobs.myJobs, { orgId });
   const unscheduled = useQuery(api.jobs.list, office ? { orgId, status: "draft", paginationOpts: page } : "skip");
   const defects = useQuery(api.defects.list, { orgId, status: "open", paginationOpts: page });
@@ -97,14 +100,14 @@ function Dashboard() {
             { header: "Status", cell: (j) => <StatusBadge status={j.status} label={jobStatusLabel(j.status)} /> },
           ]} />
         </Card>
-        <Card title="Service due in the next 30 days" actions={<Link className="text-sm text-red-700 hover:underline" href="/app/schedules">All schedules</Link>}>
+        {perms.can("schedules.view") && <Card title="Service due in the next 30 days" actions={<Link className="text-sm text-red-700 hover:underline" href="/app/schedules">All schedules</Link>}>
           <Table rows={due} href={(s) => `/app/schedules/${s._id}`} empty="Nothing due. 🎉" columns={[
             { header: "Schedule", cell: (s) => s.name },
             { header: "Site", cell: (s) => <SiteName id={s.siteId} /> },
             { header: "Discipline", cell: (s) => disciplineLabel(s.discipline) },
             { header: "Due", cell: (s) => <span className={s.nextDueAt < now ? "font-medium text-red-700" : ""}>{date(s.nextDueAt)}{s.nextDueAt < now && " (overdue)"}</span> },
           ]} />
-        </Card>
+        </Card>}
         {office && (
           <Card title="Unscheduled jobs" actions={<Link className="text-sm text-red-700 hover:underline" href="/app/jobs?status=draft">View all</Link>}>
             <Table rows={unscheduled?.page} href={(j) => `/app/jobs/${j._id}`} empty="No unscheduled jobs." columns={[

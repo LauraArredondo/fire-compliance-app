@@ -58,3 +58,11 @@ export function useAssignedScope() {
     };
   }, [assignedOnly, jobs]);
 }
+
+/**
+ * `clients:list` / `clients:get` return only `{ _id, name }` to engineers. Office pages need the
+ * full record: this narrows the union (returns null for the limited shape).
+ */
+export function fullClient<T extends { _id: unknown; name: string }>(c: T | null | undefined): Extract<T, { orgId: unknown }> | null {
+  return c && typeof c === "object" && "orgId" in c ? (c as Extract<T, { orgId: unknown }>) : null;
+}

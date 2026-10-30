@@ -3,7 +3,6 @@
 import { useQuery } from "convex/react";
 import { api, type Id } from "@/lib/api";
 import { useOrg } from "@/lib/session";
-import { useAssignedScope } from "@/lib/permissions";
 import { Select } from "./ui";
 
 const big = { numItems: 200, cursor: null };
@@ -17,9 +16,8 @@ export function ClientSelect({ value, onChange, required }: { value: string; onC
 export function SiteSelect({ value, onChange, clientId, required, placeholder = "Select a site…" }: { value: string; onChange: (id: Id<"sites"> | "") => void; clientId?: Id<"clients"> | ""; required?: boolean; placeholder?: string }) {
   const { orgId } = useOrg();
   const r = useQuery(api.sites.list, { orgId, clientId: clientId || undefined, paginationOpts: big });
-  // Engineers can only pick the sites of their own jobs.
-  const scope = useAssignedScope();
-  return <Select required={required} placeholder={r ? placeholder : "Loading…"} value={value} onChange={(e) => onChange(e.target.value as Id<"sites">)} options={(r?.page ?? []).filter((s) => s.status === "active" && scope.canSeeSite(s._id)).map((s) => ({ value: s._id, label: s.name }))} />;
+  // For engineers the backend already returns only the sites of their own jobs.
+  return <Select required={required} placeholder={r ? placeholder : "Loading…"} value={value} onChange={(e) => onChange(e.target.value as Id<"sites">)} options={(r?.page ?? []).filter((s) => s.status === "active").map((s) => ({ value: s._id, label: s.name }))} />;
 }
 
 export function useEngineers() {

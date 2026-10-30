@@ -4,6 +4,18 @@ Generated from `npx convex function-spec` + source. Roles: owner, admin, office,
 `Discipline` = fire_alarm | emergency_lighting | fire_extinguishers | sprinklers | fire_doors | dry_wet_risers | smoke_ventilation | gas_suppression | fire_risk_assessment | intruder_alarm | cctv | access_control | nurse_call | other.
 All org-scoped functions take `orgId` and check membership via `requireMember`; client_user is read-only and limited to their client/granted sites. Errors are `ConvexError` with a user-facing message.
 
+## Role scoping (server-enforced)
+
+- **owner / admin / office**: everything in their org.
+- **engineer**: only jobs they are assigned to (`jobs.assignedEngineerIds`, mirrored in `jobAssignments`) and the sites of those jobs (any job status).
+  - `jobs:list` returns assigned jobs only; `jobs:get`, `visits:*`, `inspections:listForVisit`, job/visit attachments need the assignment -> `You're not assigned to this job`.
+  - Site-scoped records (sites, assets, locations, defects, certificates, readings, site attachments) need an assigned job at that site -> `You're not assigned to a job at this site`; site lookups via `sites:get`, `assets:list`, `locations:listBySite`, `defects:openForSite`, `certificates:listBySite`, `assets:registerForSite`, `inspections:listForAsset`/`readingsForAsset` answer `Site not found`.
+  - `sites:list` and `clients:list` return one full page (`isDone: true`) of assigned sites / their clients; `clients:*` give engineers `{_id, name}` only (`clients:get` on another client -> `You're not assigned to a job for this client`).
+  - `certificates:list` and `defects:list` (org-wide) are filtered to assigned sites, so pages can be shorter than `numItems`; with `siteId` they refuse unassigned sites.
+  - Refused with `Insufficient permissions`: `quotes:list/get/getPdf`, `invoices:*`, `serviceSchedules:list/get/dueSoon`, `reminders:*`, `certificates:reissue`, attachments on quotes.
+  - `organizations:get` omits `bankDetails`, `quoteTerms`, `invoiceFooter`, `defaultTaxRate`, `jobAutomation`.
+- **client_user** (portal): unchanged, plus `clients:get` now omits `notes`, `accountNumber`, `externalAccountingId`; `certificates:getPdf`/`listBySite` respect their granted sites.
+
 ## Counts by area
 
 | Area | Queries | Mutations | Actions | Total |
@@ -187,7 +199,7 @@ Finalise a draft certificate: checks signatures, sets status `issued`, dates and
 - **Who:** staff (owner/admin/office/engineer)
 
 ### `certificates:list` (query)
-Certificates by status (staff; client users see their client's issued ones). Paginated, newest first.
+Certificates by status (office+ all; engineers those on sites of their assigned jobs; client users their client's issued ones). Paginated, newest first.
 - **Args:** `{ orgId: Id<organizations>, paginationOpts: { cursor: string | null, endCursor?: string | null, id?: number, maximumBytesRead?: number, maximumRowsRead?: number, numItems: number }, status?: "draft" | "pending_signature" | "issued" | "superseded" | "revoked" | "all" }`
 - **Who:** any member incl. client_user (client_user scoped to own client/sites, read-only)
 
@@ -211,7 +223,7 @@ Re-render the PDF of an issued certificate, e.g. after a logo change (owner/admi
 Start a reissue: copies an issued certificate into a new draft revision (new number suffix /R1, /R2…, new QR token, signatures cleared). When the new draft is issued, the original becomes `superseded`.
 
 - **Args:** `{ certificateId: Id<certificates>, reason?: string }`
-- **Who:** staff (owner/admin/office/engineer)
+- **Who:** OFFICE_ROLES
 
 ### `certificates:removeDraft` (mutation)
 Delete a draft that was never issued (office).
@@ -265,12 +277,14 @@ Edit a template. Changing the items bumps `version` (inspections keep the versio
 - **Who:** office (owner/admin/office)
 
 ### `clients:get` (query)
-One client (staff, or that client's own portal users).
+One client. Office+: full record. Engineers: `{ _id, name }` only, and only for clients of their assigned jobs' sites. Portal users: their own client without notes / account number / accounting id.
+
 - **Args:** `{ clientId: Id<clients> }`
 - **Who:** any member incl. client_user (client_user scoped to own client/sites, read-only)
 
 ### `clients:list` (query)
-Clients (staff). Paginated, newest first; `search` uses the name search index.
+Clients. Office+: full records, paginated newest first; `search` uses the name search index. Engineers: only clients of their assigned jobs' sites, as `{ _id, name }` (single page).
+
 - **Args:** `{ orgId: Id<organizations>, paginationOpts: { cursor: string | null, endCursor?: string | null, id?: number, maximumBytesRead?: number, maximumRowsRead?: number, numItems: number }, search?: string, status?: "active" | "archived" }`
 - **Who:** staff (owner/admin/office/engineer)
 
@@ -300,7 +314,7 @@ Link a defect to a quote (marks it "quoted") or clear the link.
 - **Who:** office (owner/admin/office)
 
 ### `defects:list` (query)
-Defects by status, org-wide (staff) or for the client user's client. Paginated.
+Defects by status: org-wide (office+), sites of assigned jobs (engineers), or the client user's client. Paginated.
 - **Args:** `{ orgId: Id<organizations>, paginationOpts: { cursor: string | null, endCursor?: string | null, id?: number, maximumBytesRead?: number, maximumRowsRead?: number, numItems: number }, siteId?: Id<sites>, status?: "open" | "quoted" | "scheduled" | "in_progress" | "resolved" | "verified" | "closed_no_action" | "all" }`
 - **Who:** any member incl. client_user (client_user scoped to own client/sites, read-only)
 
@@ -373,12 +387,12 @@ Invoice an accepted quote (selected lines, keeping unit prices and line discount
 
 ### `invoices:get` (query)
 - **Args:** `{ invoiceId: Id<invoices> }`
-- **Who:** any member incl. client_user (client_user scoped to own client/sites, read-only)
+- **Who:** OFFICE_OR_CLIENT
 
 ### `invoices:getPdf` (query)
 PDF status + download URL. Office/managers any status; portal users only sent invoices they can see. Engineers can't.
 - **Args:** `{ invoiceId: Id<invoices> }`
-- **Who:** any member incl. client_user (client_user scoped to own client/sites, read-only)
+- **Who:** OFFICE_OR_CLIENT
 
 ### `invoices:list` (query)
 Invoices by status (office), or the client user's own invoices (sent onwards). Paginated.
@@ -430,7 +444,7 @@ Office: preview qualification warnings before assigning (e.g. while picking engi
 - **Who:** any member incl. client_user (client_user scoped to own client/sites, read-only)
 
 ### `jobs:list` (query)
-Jobs by status (staff; client users see their own client's jobs). Paginated.
+Jobs by status. Office+ all; engineers only jobs assigned to them; client users their own client's jobs. Paginated.
 - **Args:** `{ orgId: Id<organizations>, paginationOpts: { cursor: string | null, endCursor?: string | null, id?: number, maximumBytesRead?: number, maximumRowsRead?: number, numItems: number }, siteId?: Id<sites>, status?: "draft" | "scheduled" | "in_progress" | "on_hold" | "completed" | "invoiced" | "cancelled" }`
 - **Who:** any member incl. client_user (client_user scoped to own client/sites, read-only)
 
@@ -605,7 +619,7 @@ PUBLIC: upload URL for the acceptance signature image (only while the quote is o
 
 ### `quotes:get` (query)
 - **Args:** `{ quoteId: Id<quotes> }`
-- **Who:** any member incl. client_user (client_user scoped to own client/sites, read-only)
+- **Who:** OFFICE_OR_CLIENT
 
 ### `quotes:getByToken` (query)
 PUBLIC: the client-facing view of a quote, by its acceptance link token.
@@ -616,12 +630,12 @@ PUBLIC: the client-facing view of a quote, by its acceptance link token.
 PDF status + download URL. Staff any status; portal users only for quotes they can see (not drafts/superseded). `publicUrl` is the stable emailed link (latest render), null for drafts.
 
 - **Args:** `{ quoteId: Id<quotes> }`
-- **Who:** any member incl. client_user (client_user scoped to own client/sites, read-only)
+- **Who:** OFFICE_OR_CLIENT
 
 ### `quotes:list` (query)
 Quotes by status (staff) or the client user's quotes (sent onwards). Paginated, newest first.
 - **Args:** `{ clientId?: Id<clients>, orgId: Id<organizations>, paginationOpts: { cursor: string | null, endCursor?: string | null, id?: number, maximumBytesRead?: number, maximumRowsRead?: number, numItems: number }, status?: "draft" | "sent" | "viewed" | "accepted" | "declined" | "expired" | "superseded" | "all" }`
-- **Who:** any member incl. client_user (client_user scoped to own client/sites, read-only)
+- **Who:** OFFICE_OR_CLIENT
 
 ### `quotes:markViewed` (mutation)
 PUBLIC: record that the client opened the link (call once on page load).
@@ -670,24 +684,24 @@ Send to the client: freezes the quote, creates the public acceptance link and qu
 ## reminders
 
 ### `reminders:dismiss` (mutation)
-Dismiss a pending reminder; it will not be recreated for the same stage.
+Dismiss a pending reminder; it will not be recreated for the same stage. Office+ only.
 - **Args:** `{ reason?: string, reminderId: Id<reminders> }`
-- **Who:** staff (owner/admin/office/engineer)
+- **Who:** office (owner/admin/office)
 
 ### `reminders:getNotification` (query)
-One notification including its rendered HTML / text (preview).
+One notification including its rendered HTML / text (preview). Office+ only.
 - **Args:** `{ notificationId: Id<notifications> }`
-- **Who:** staff (owner/admin/office/engineer)
+- **Who:** office (owner/admin/office)
 
 ### `reminders:list` (query)
-Reminders by status (default: pending = upcoming), soonest first; dispatched ones newest first.
+Reminders by status (default: pending = upcoming), soonest first; dispatched ones newest first. Office+ only.
 - **Args:** `{ limit?: number, orgId: Id<organizations>, status?: "pending" | "dispatched" | "no_recipients" | "dismissed" | "cancelled" }`
-- **Who:** staff (owner/admin/office/engineer)
+- **Who:** office (owner/admin/office)
 
 ### `reminders:listNotifications` (query)
-Notification log (sent / dry-run / skipped / failed), newest first.
+Notification log (sent / dry-run / skipped / failed), newest first. Office+ only.
 - **Args:** `{ limit?: number, orgId: Id<organizations> }`
-- **Who:** staff (owner/admin/office/engineer)
+- **Who:** office (owner/admin/office)
 
 ### `reminders:providerStatus` (query)
 Whether real sending is configured (for a settings screen).
@@ -705,9 +719,9 @@ Send a test reminder email to yourself (or a given address). Dry-run when no pro
 - **Who:** office (owner/admin/office)
 
 ### `reminders:snooze` (mutation)
-Postpone a pending reminder by N days (sent at 07:00 UK time on that day).
+Postpone a pending reminder by N days (sent at 07:00 UK time on that day). Office+ only.
 - **Args:** `{ days: number, reminderId: Id<reminders> }`
-- **Who:** staff (owner/admin/office/engineer)
+- **Who:** office (owner/admin/office)
 
 ## serviceSchedules
 
@@ -718,18 +732,18 @@ Create a schedule. autoCreateJob now defaults to true: a routine job is created 
 - **Who:** office (owner/admin/office)
 
 ### `serviceSchedules:dueSoon` (query)
-Active service schedules due within the next `days` days (incl. overdue), for staff.
+Active service schedules due within the next `days` days (incl. overdue). Office+ only.
 - **Args:** `{ days?: number, orgId: Id<organizations> }`
-- **Who:** staff (owner/admin/office/engineer)
+- **Who:** office (owner/admin/office)
 
 ### `serviceSchedules:get` (query)
 - **Args:** `{ scheduleId: Id<serviceSchedules> }`
-- **Who:** any member incl. client_user (client_user scoped to own client/sites, read-only)
+- **Who:** OFFICE_OR_CLIENT
 
 ### `serviceSchedules:list` (query)
-Schedules ordered by next due date (staff), or for one site (staff or that site's portal users). Paginated.
+Schedules ordered by next due date (office+), or for one site (office+ or that site's portal users). Engineers refused. Paginated.
 - **Args:** `{ orgId: Id<organizations>, paginationOpts: { cursor: string | null, endCursor?: string | null, id?: number, maximumBytesRead?: number, maximumRowsRead?: number, numItems: number }, siteId?: Id<sites>, status?: "active" | "paused" | "ended" }`
-- **Who:** any member incl. client_user (client_user scoped to own client/sites, read-only)
+- **Who:** OFFICE_OR_CLIENT
 
 ### `serviceSchedules:runAutoJobsNow` (mutation)
 Office: run the daily auto-job step now (same rules and dedupe as the 07:00 UK run).
@@ -756,7 +770,7 @@ Pause, resume or end a schedule. Paused/ended schedules send no reminders and ge
 - **Who:** any member incl. client_user (client_user scoped to own client/sites, read-only)
 
 ### `sites:list` (query)
-Sites for a client (staff or that client's portal users), or all org sites (staff). Paginated.
+Sites for a client (staff or that client's portal users), or all org sites (office+). Engineers: only sites of their assigned jobs (one page). Paginated.
 - **Args:** `{ clientId?: Id<clients>, orgId: Id<organizations>, paginationOpts: { cursor: string | null, endCursor?: string | null, id?: number, maximumBytesRead?: number, maximumRowsRead?: number, numItems: number }, search?: string }`
 - **Who:** any member incl. client_user (client_user scoped to own client/sites, read-only)
 

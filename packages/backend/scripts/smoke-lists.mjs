@@ -20,7 +20,7 @@ const siteId = await A.mutation("sites:create", { orgId, clientId, name: "Acme T
 const pi = await A.mutation("portal:createInvitation", { clientId, email: `clara+${run}@smoke.test`, name: "Clara" }).catch(() => null);
 if (pi?.token) await C.mutation("portal:acceptInvitation", { token: pi.token }).catch(() => null);
 
-const jobId = await A.mutation("jobs:create", { siteId, type: "remedial", disciplines: ["fire_alarm"], title: "Fix" });
+const jobId = await A.mutation("jobs:create", { siteId, type: "remedial", disciplines: ["fire_alarm"], title: "Fix", assignedEngineerIds: [eId] });
 await A.mutation("serviceSchedules:create", { siteId, discipline: "fire_alarm", name: "Annual", frequency: { interval: 12, unit: "month" }, nextDueAt: Date.now() + 90 * 864e5 });
 await A.mutation("defects:raise", { siteId, discipline: "fire_alarm", title: "Open defect", severity: "minor", visibleToClient: true });
 const d2 = await A.mutation("defects:raise", { siteId, discipline: "fire_alarm", title: "Resolved defect", severity: "minor", visibleToClient: false });

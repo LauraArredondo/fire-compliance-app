@@ -12,6 +12,7 @@ import { ROLE_LABEL, type Role } from "@/lib/labels";
 import { Loading } from "./ui";
 import { Logo } from "./Logo";
 import { OrgSwitcher } from "./OrgSwitcher";
+import { AccessBoundary } from "./AccessBoundary";
 
 export type NavItem = { href: string; label: string; roles?: Role[] };
 
@@ -71,7 +72,7 @@ export function Shell({ area, nav, children }: { area: "staff" | "portal"; nav: 
         <button className="rounded-md border border-slate-300 px-3 py-1 text-sm" onClick={() => setOpen(!open)}>{open ? "Close" : "Menu"}</button>
       </div>
       {open && <div className="lg:hidden">{sidebar}</div>}
-      <main className="min-w-0 flex-1 px-4 py-6 sm:px-8"><div className="mx-auto max-w-6xl">{children}</div></main>
+      <main className="min-w-0 flex-1 px-4 py-6 sm:px-8"><div className="mx-auto max-w-6xl"><AccessBoundary key={pathname} home={root}>{children}</AccessBoundary></div></main>
     </div>
   );
 }

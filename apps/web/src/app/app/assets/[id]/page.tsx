@@ -2,25 +2,24 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { api, type Id } from "@/lib/api";
 import { disciplineLabel, humanize } from "@/lib/labels";
 import { NotAvailable } from "@/components/NotAvailable";
-import { useAssignedScope, usePermissions } from "@/lib/permissions";
+import { useSafeQuery } from "@/lib/useSafeQuery";
 import { date, fromDateInput, opt, toDateInput } from "@/lib/format";
 import { errorMessage } from "@/lib/errors";
 import { ActionButton, Button, Card, DL, ErrorBox, Field, Input, LinkButton, Loading, PageHeader, StatusBadge } from "@/components/ui";
 
 export default function AssetPage() {
   const { id } = useParams<{ id: Id<"assets"> }>();
-  const asset = useQuery(api.assets.get, { assetId: id });
-  const scope = useAssignedScope();
+  const { data: asset, denied } = useSafeQuery(api.assets.get, { assetId: id });
   const setStatus = useMutation(api.assets.setStatus);
   const decommission = useMutation(api.assets.decommission);
   const [editing, setEditing] = useState(false);
-  if (!asset || !scope.ready) return <Loading />;
-  // Engineers only see assets at the sites of their own jobs.
-  if (!scope.canSeeSite(asset.siteId)) return <NotAvailable what="asset" />;
+  // Engineers only see assets at the sites of their own jobs (enforced by the backend).
+  if (denied) return <NotAvailable what="asset" />;
+  if (!asset) return <Loading />;
   const gone = asset.status === "removed" || asset.status === "replaced";
   return (
     <>

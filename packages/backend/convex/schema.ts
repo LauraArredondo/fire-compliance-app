@@ -458,6 +458,21 @@ export default defineSchema({
     .index("by_schedule", ["scheduleId"])
     .index("by_quote", ["quoteId"]),
 
+  /**
+   * One row per (job, assigned engineer). Mirrors jobs.assignedEngineerIds so engineer access
+   * checks ("assigned jobs" / "sites of assigned jobs") are index-backed. Kept in sync by
+   * lib/auth.syncJobAssignments (jobs.insertJob, jobs.assignEngineers).
+   */
+  jobAssignments: defineTable({
+    orgId: v.id("organizations"),
+    userId: v.id("users"),
+    jobId: v.id("jobs"),
+    siteId: v.id("sites"),
+  })
+    .index("by_org_and_user", ["orgId", "userId"])
+    .index("by_org_and_user_and_site", ["orgId", "userId", "siteId"])
+    .index("by_job", ["jobId"]),
+
   /** An engineer's attendance at site for a job (one job may need several visits). */
   visits: defineTable({
     orgId: v.id("organizations"),

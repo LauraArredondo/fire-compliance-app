@@ -51,6 +51,7 @@ import type * as reminders from "../reminders.js";
 import type * as serviceSchedules from "../serviceSchedules.js";
 import type * as sites from "../sites.js";
 import type * as team from "../team.js";
+import type * as testing from "../testing.js";
 import type * as users from "../users.js";
 import type * as visits from "../visits.js";
 
@@ -104,6 +105,7 @@ declare const fullApi: ApiFromModules<{
   serviceSchedules: typeof serviceSchedules;
   sites: typeof sites;
   team: typeof team;
+  testing: typeof testing;
   users: typeof users;
   visits: typeof visits;
 }>;

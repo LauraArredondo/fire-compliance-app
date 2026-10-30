@@ -67,9 +67,21 @@ for f in spec:
     a=a.replace(DISC,'Discipline')
     if len(a)>1500: a=a[:1500]+' …'
     groups[mod].append((name,f['functionType'].lower(),a,who(mod,name,body,args),doc))
+ROLES_MD = """## Role scoping (server-enforced)
+
+- **owner / admin / office**: everything in their org.
+- **engineer**: only jobs they are assigned to (`jobs.assignedEngineerIds`, mirrored in `jobAssignments`) and the sites of those jobs (any job status).
+  - `jobs:list` returns assigned jobs only; `jobs:get`, `visits:*`, `inspections:listForVisit`, job/visit attachments need the assignment -> `You're not assigned to this job`.
+  - Site-scoped records (sites, assets, locations, defects, certificates, readings, site attachments) need an assigned job at that site -> `You're not assigned to a job at this site`; site lookups via `sites:get`, `assets:list`, `locations:listBySite`, `defects:openForSite`, `certificates:listBySite`, `assets:registerForSite`, `inspections:listForAsset`/`readingsForAsset` answer `Site not found`.
+  - `sites:list` and `clients:list` return one full page (`isDone: true`) of assigned sites / their clients; `clients:*` give engineers `{_id, name}` only (`clients:get` on another client -> `You're not assigned to a job for this client`).
+  - `certificates:list` and `defects:list` (org-wide) are filtered to assigned sites, so pages can be shorter than `numItems`; with `siteId` they refuse unassigned sites.
+  - Refused with `Insufficient permissions`: `quotes:list/get/getPdf`, `invoices:*`, `serviceSchedules:list/get/dueSoon`, `reminders:*`, `certificates:reissue`, attachments on quotes.
+  - `organizations:get` omits `bankDetails`, `quoteTerms`, `invoiceFooter`, `defaultTaxRate`, `jobAutomation`.
+- **client_user** (portal): unchanged, plus `clients:get` now omits `notes`, `accountNumber`, `externalAccountingId`; `certificates:getPdf`/`listBySite` respect their granted sites.
+"""
 out=["# API reference — dev deployment elegant-echidna-735","","Generated from `npx convex function-spec` + source. Roles: owner, admin, office, engineer, client_user.",
 "`Discipline` = fire_alarm | emergency_lighting | fire_extinguishers | sprinklers | fire_doors | dry_wet_risers | smoke_ventilation | gas_suppression | fire_risk_assessment | intruder_alarm | cctv | access_control | nurse_call | other.","All org-scoped functions take `orgId` and check membership via `requireMember`; client_user is read-only and limited to their client/granted sites. Errors are `ConvexError` with a user-facing message.","",
-"## Counts by area","","| Area | Queries | Mutations | Actions | Total |","|---|---|---|---|---|"]
+ROLES_MD,"## Counts by area","","| Area | Queries | Mutations | Actions | Total |","|---|---|---|---|---|"]
 tot=collections.Counter()
 for m in sorted(groups):
     c=collections.Counter(x[1] for x in groups[m]); tot.update(c)

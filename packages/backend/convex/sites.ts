@@ -2,16 +2,29 @@ import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { paginationOptsValidator } from "convex/server";
 import { mutation, query } from "./_generated/server";
-import { requireMember, canSeeSite } from "./lib/auth";
+import { requireMember, canSeeSite, assignedSiteIds } from "./lib/auth";
 import { newPublicToken } from "./lib/tokens";
 import { audit, fail, str, optStr, cleanAddress, cleanContact, addressV, contactV, geoV, defined, loadForMember, inOrg, STAFF, OFFICE, ANY } from "./lib/util";
 
-/** Sites for a client (staff or that client's portal users), or all org sites (staff). Paginated. */
+/** Sites for a client (staff or that client's portal users), or all org sites (office+). Engineers: only sites of their assigned jobs (one page). Paginated. */
 export const list = query({
   args: { orgId: v.id("organizations"), clientId: v.optional(v.id("clients")), search: v.optional(v.string()), paginationOpts: paginationOptsValidator },
   handler: async (ctx, { orgId, clientId, search, paginationOpts }) => {
     const { membership } = await requireMember(ctx, orgId, ANY);
     const isClient = membership.role === "client_user";
+    if (membership.role === "engineer") {
+      // Engineers: only sites of jobs assigned to them (single page; an engineer's site list is small).
+      if (paginationOpts.cursor) return { page: [], isDone: true, continueCursor: "end" };
+      const term = search?.trim().toLowerCase();
+      const out = [];
+      for (const id of await assignedSiteIds(ctx, orgId, membership.userId)) {
+        const s = await ctx.db.get(id);
+        if (!s || s.orgId !== orgId || (clientId && s.clientId !== clientId) || (term && !s.name.toLowerCase().includes(term))) continue;
+        out.push({ ...s, clientName: (await ctx.db.get(s.clientId))?.name ?? "" });
+      }
+      out.sort((a, b) => a.name.localeCompare(b.name));
+      return { page: out, isDone: true, continueCursor: "end" };
+    }
     const cid = isClient ? membership.clientId : clientId;
     if (isClient && clientId && clientId !== cid) fail("Client not found");
     const page = search?.trim()

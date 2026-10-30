@@ -75,8 +75,7 @@ await step("clients: list (paginated)", async () => { const r = await A.query("c
 await step("clients: update", () => A.mutation("clients:update", { clientId, reminderEmails: ["facilities@acme.example"] }));
 const siteId = await step("sites: create", () => A.mutation("sites:create", { orgId, clientId, name: "Acme HQ", address: { line1: "1 High St", city: "Leeds", postcode: "LS1 4AP" }, geo: { lat: 53.8, lng: -1.55 } }));
 const site2 = await step("sites: create second site", () => A.mutation("sites:create", { orgId, clientId, name: "Acme Warehouse", address: { line1: "Unit 4", city: "Leeds" } }));
-await step("sites: engineer updates access notes", () => E.mutation("sites:update", { siteId, accessNotes: "Keys at reception" }));
-await refused("sites: engineer can't change address", () => E.mutation("sites:update", { siteId, address: { line1: "Elsewhere" } }));
+await refused("sites: unassigned engineer can't edit site", () => E.mutation("sites:update", { siteId, accessNotes: "Keys at reception" }), /not assigned/);
 const bldg = await step("locations: create building", () => A.mutation("locations:create", { siteId, kind: "building", name: "Main" }));
 const floor = await step("locations: create floor", () => A.mutation("locations:create", { siteId, kind: "floor", name: "Ground", parentId: bldg }));
 await refused("locations: can't delete with children", () => A.mutation("locations:remove", { locationId: bldg }));
@@ -103,6 +102,8 @@ await step("serviceSchedules: pause/resume", async () => { await A.mutation("ser
 // ---------- jobs & visits ----------
 const jobId = await step("jobs: create (JOB- number)", async () => { const id = await A.mutation("jobs:create", { siteId, type: "routine_service", disciplines: ["fire_alarm"], title: "FA service", scheduleId: schedId, scheduledStart: Date.now() + 3600e3 }); const j = await A.query("jobs:get", { jobId: id }); assert(/^JOB-\d{6}$/.test(j.jobNumber), j.jobNumber); return id; });
 await step("jobs: assignEngineers", () => A.mutation("jobs:assignEngineers", { jobId, engineerIds: [engUserId] }));
+await step("sites: engineer updates access notes", () => E.mutation("sites:update", { siteId, accessNotes: "Keys at reception" }));
+await refused("sites: engineer can't change address", () => E.mutation("sites:update", { siteId, address: { line1: "Elsewhere" } }));
 await step("jobs: engineer sees myJobs", async () => { const l = await E.query("jobs:myJobs", { orgId }); assert(l.some((j) => j._id === jobId), "in myJobs"); });
 const visitId = await step("visits: start with GPS (idempotent)", async () => { const a = await E.mutation("visits:start", { jobId, geo: { lat: 53.8, lng: -1.55 }, clientGeneratedId: `v-${run}` }); const b = await E.mutation("visits:start", { jobId, geo: { lat: 53.8, lng: -1.55 }, clientGeneratedId: `v-${run}` }); assert(a === b, "same id"); return a; });
 await step("inspections: record bulk (idempotent) + readings", async () => {

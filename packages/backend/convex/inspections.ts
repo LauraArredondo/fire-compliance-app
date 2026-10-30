@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query, MutationCtx } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
-import { canSeeSite } from "./lib/auth";
+import { canSeeSite, requireJobScope } from "./lib/auth";
 import { discipline } from "./schema";
 import { audit, fail, optStr, loadDoc, loadForMember, inOrg, requireFile, STAFF, ANY } from "./lib/util";
 
@@ -181,7 +181,9 @@ export const update = mutation({
 export const listForVisit = query({
   args: { visitId: v.id("visits") },
   handler: async (ctx, { visitId }) => {
-    const { doc: visit } = await loadForMember(ctx, visitId, "Visit", STAFF);
+    const { doc: visit, membership } = await loadForMember(ctx, visitId, "Visit", STAFF);
+    // Engineers: must be assigned to the visit's job.
+    if (membership.role === "engineer") requireJobScope(membership, await loadDoc(ctx, visit.jobId, "Job"));
     return await ctx.db.query("inspections").withIndex("by_visit", (q) => q.eq("visitId", visit._id)).take(2000);
   },
 });

@@ -9,7 +9,7 @@ import { queueEmail, appUrl } from "./lib/notify";
 import { quoteTotals, formatMoney } from "./lib/money";
 import { insertJob } from "./jobs";
 import { requestQuotePdf, quotePdfUrl } from "./lib/docPdf";
-import { audit, withNames, fail, str, optStr, defined, loadDoc, loadForMember, inOrg, nextNumber, email as cleanEmail, validateLine, lineNet, requireFile, IMAGE, DAY, OFFICE, ANY } from "./lib/util";
+import { audit, withNames, fail, str, optStr, defined, loadDoc, loadForMember, inOrg, nextNumber, email as cleanEmail, validateLine, lineNet, requireFile, IMAGE, DAY, OFFICE, ANY, OFFICE_OR_CLIENT } from "./lib/util";
 
 const status = v.union(v.literal("draft"), v.literal("sent"), v.literal("viewed"), v.literal("accepted"), v.literal("declined"), v.literal("expired"), v.literal("superseded"));
 const kind = v.union(v.literal("labour"), v.literal("material"), v.literal("equipment"), v.literal("service"), v.literal("other"));
@@ -49,7 +49,7 @@ export const list = query({
   /** status: omitted = "draft" for staff (unchanged default); "all" = every status, newest first. */
   args: { orgId: v.id("organizations"), status: v.optional(v.union(status, v.literal("all"))), clientId: v.optional(v.id("clients")), paginationOpts: paginationOptsValidator },
   handler: async (ctx, { orgId, status: stIn, clientId, paginationOpts }) => {
-    const { membership } = await requireMember(ctx, orgId, ANY);
+    const { membership } = await requireMember(ctx, orgId, OFFICE_OR_CLIENT);
     const st = stIn === "all" ? undefined : stIn;
     if (membership.role === "client_user") {
       const page = await ctx.db.query("quotes").withIndex("by_client", (q) => q.eq("clientId", membership.clientId!)).order("desc").paginate(paginationOpts);
@@ -76,7 +76,7 @@ const strip = ({ acceptanceToken, externalAccountingId, ...q }: Doc<"quotes">) =
 export const get = query({
   args: { quoteId: v.id("quotes") },
   handler: async (ctx, { quoteId }) => {
-    const { doc, membership } = await loadForMember(ctx, quoteId, "Quote", ANY);
+    const { doc, membership } = await loadForMember(ctx, quoteId, "Quote", OFFICE_OR_CLIENT);
     if (membership.role === "client_user") {
       if (doc.status === "draft" || doc.status === "superseded") fail("Quote not found");
       if (doc.siteId && !(await canSeeSite(ctx, membership, await loadDoc(ctx, doc.siteId, "Site")))) fail("Quote not found");
@@ -387,7 +387,7 @@ export const convertToJob = mutation({
 export const getPdf = query({
   args: { quoteId: v.id("quotes") },
   handler: async (ctx, { quoteId }) => {
-    const { doc, membership } = await loadForMember(ctx, quoteId, "Quote", ANY);
+    const { doc, membership } = await loadForMember(ctx, quoteId, "Quote", OFFICE_OR_CLIENT);
     if (membership.role === "client_user") {
       if (doc.status === "draft" || doc.status === "superseded") fail("Quote not found");
       if (doc.siteId && !(await canSeeSite(ctx, membership, await loadDoc(ctx, doc.siteId, "Site")))) fail("Quote not found");
