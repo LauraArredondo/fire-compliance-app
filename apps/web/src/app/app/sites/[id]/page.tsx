@@ -5,7 +5,9 @@ import { useParams } from "next/navigation";
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { api, type Id } from "@/lib/api";
 import { useOrg } from "@/lib/session";
-import { OFFICE, disciplineLabel, humanize, jobStatusLabel } from "@/lib/labels";
+import { disciplineLabel, humanize, jobStatusLabel } from "@/lib/labels";
+import { useAssignedScope, usePermissions } from "@/lib/permissions";
+import { NotAvailable } from "@/components/NotAvailable";
 import { address, date, dateTime, opt } from "@/lib/format";
 import { errorMessage } from "@/lib/errors";
 import { ActionButton, Badge, Button, Card, DL, ErrorBox, Field, Input, LinkButton, Loading, LoadMore, PageHeader, Select, StatusBadge, Table } from "@/components/ui";
@@ -15,31 +17,36 @@ const LOCATION_KINDS = ["building", "floor", "zone", "room", "area"] as const;
 
 export default function SiteDetailPage() {
   const { id } = useParams<{ id: Id<"sites"> }>();
-  const { orgId, role } = useOrg();
-  const office = OFFICE.includes(role);
+  const { orgId } = useOrg();
+  const perms = usePermissions();
+  const scope = useAssignedScope();
+  const office = perms.can("sites.manage");
   const site = useQuery(api.sites.get, { siteId: id });
   const assets = usePaginatedQuery(api.assets.list, { siteId: id }, { initialNumItems: 25 });
   const defects = useQuery(api.defects.openForSite, { orgId, siteId: id });
   const certs = useQuery(api.certificates.listBySite, { orgId, siteId: id });
-  const schedules = useQuery(api.serviceSchedules.list, { orgId, siteId: id, paginationOpts: { numItems: 50, cursor: null } });
-  const jobs = useQuery(api.jobs.list, { orgId, siteId: id, paginationOpts: { numItems: 20, cursor: null } });
+  const schedules = useQuery(api.serviceSchedules.list, !perms.can("schedules.view") ? "skip" : { orgId, siteId: id, paginationOpts: { numItems: 50, cursor: null } });
+  const jobs = useQuery(api.jobs.list, !perms.can("jobs.viewAll") ? "skip" : { orgId, siteId: id, paginationOpts: { numItems: 20, cursor: null } });
   const setArchived = useMutation(api.sites.setArchived);
   const [addingAsset, setAddingAsset] = useState(false);
 
-  if (!site) return <Loading />;
+  if (!site || !scope.ready) return <Loading />;
+  // Engineers only see the sites of their own jobs.
+  if (!scope.canSeeSite(site._id)) return <NotAvailable what="site" />;
+  const myJobsHere = scope.assignedOnly ? (scope.jobs ?? []).filter((j) => j.siteId === site._id) : undefined;
   const archived = site.status === "archived";
   const locName = (lid?: string) => site.locations.find((l) => l._id === lid)?.name ?? "—";
   return (
     <>
       <PageHeader
-        back={{ href: "/app/sites", label: "Sites" }}
+        back={perms.can("sites.viewAll") ? { href: "/app/sites", label: "Sites" } : { href: "/app/jobs", label: "My jobs" }}
         title={<span className="flex items-center gap-3">{site.name} {archived && <Badge tone="amber">Archived</Badge>}</span>}
-        subtitle={<>{address(site.address)} · <ClientName id={site.clientId} /></>}
+        subtitle={<>{address(site.address)} · <ClientName id={site.clientId} link={perms.can("clients.view")} /></>}
         actions={
           <>
-            {!archived && <LinkButton href={`/app/jobs/new?siteId=${id}`}>New job</LinkButton>}
+            {!archived && perms.can("jobs.manage") && <LinkButton href={`/app/jobs/new?siteId=${id}`}>New job</LinkButton>}
             {!archived && <LinkButton variant="secondary" href={`/app/defects/new?siteId=${id}`}>Raise defect</LinkButton>}
-            <LinkButton variant="secondary" href={`/app/sites/${id}/edit`}>Edit</LinkButton>
+            {office && <LinkButton variant="secondary" href={`/app/sites/${id}/edit`}>Edit</LinkButton>}
             {office && (
               <ActionButton variant={archived ? "secondary" : "danger"} confirm={archived ? undefined : "Archive this site? Its active service schedules will be paused."} action={() => setArchived({ siteId: id, archived: !archived })}>
                 {archived ? "Restore" : "Archive"}
@@ -90,16 +97,16 @@ export default function SiteDetailPage() {
             { header: "Status", cell: (c) => <StatusBadge status={c.status} /> },
           ]} />
         </Card>
-        <Card title="Service schedules" actions={office && !archived && <LinkButton variant="secondary" href={`/app/schedules/new?siteId=${id}`}>New schedule</LinkButton>}>
+        {perms.can("schedules.view") && <Card title="Service schedules" actions={perms.can("schedules.manage") && !archived && <LinkButton variant="secondary" href={`/app/schedules/new?siteId=${id}`}>New schedule</LinkButton>}>
           <Table rows={schedules?.page} href={(s) => `/app/schedules/${s._id}`} empty="No service schedules." columns={[
             { header: "Schedule", cell: (s) => s.name },
             { header: "Every", cell: (s) => `${s.frequency.interval} ${s.frequency.unit}${s.frequency.interval === 1 ? "" : "s"}` },
             { header: "Next due", cell: (s) => date(s.nextDueAt) },
             { header: "Status", cell: (s) => <StatusBadge status={s.status} /> },
           ]} />
-        </Card>
-        <Card title="Recent jobs">
-          <Table rows={jobs?.page} href={(j) => `/app/jobs/${j._id}`} empty="No jobs." columns={[
+        </Card>}
+        <Card title={myJobsHere ? "My jobs at this site" : "Recent jobs"}>
+          <Table<{ _id: string; jobNumber: string; title: string; type: string; scheduledStart?: number; status: string }> rows={myJobsHere ?? jobs?.page} href={(j) => `/app/jobs/${j._id}`} empty="No jobs." columns={[
             { header: "Job", cell: (j) => `${j.jobNumber} · ${j.title}` },
             { header: "Type", cell: (j) => humanize(j.type) },
             { header: "Scheduled", cell: (j) => dateTime(j.scheduledStart) },

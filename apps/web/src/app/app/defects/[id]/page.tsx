@@ -5,7 +5,9 @@ import { useParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { api, type Id } from "@/lib/api";
 import { useOrg } from "@/lib/session";
-import { DEFECT_SEVERITIES, OFFICE, disciplineLabel, humanize } from "@/lib/labels";
+import { DEFECT_SEVERITIES, disciplineLabel, humanize } from "@/lib/labels";
+import { NotAvailable } from "@/components/NotAvailable";
+import { useAssignedScope, usePermissions } from "@/lib/permissions";
 import { date, dateTime, fromDateInput, opt, toDateInput } from "@/lib/format";
 import { errorMessage } from "@/lib/errors";
 import { ActionButton, Button, Card, Checkbox, DL, ErrorBox, Field, Input, LinkButton, Loading, PageHeader, Select, StatusBadge, Textarea } from "@/components/ui";
@@ -16,13 +18,16 @@ const OPEN = ["open", "quoted", "scheduled", "in_progress"];
 
 export default function DefectPage() {
   const { id } = useParams<{ id: Id<"defects"> }>();
-  const { role } = useOrg();
-  const office = OFFICE.includes(role);
+  const perms = usePermissions();
+  const scope = useAssignedScope();
+  const office = perms.can("defects.verifyClose");
   const d = useQuery(api.defects.get, { defectId: id });
   const setStatus = useMutation(api.defects.setStatus);
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  if (!d) return <Loading />;
+  if (!d || !scope.ready) return <Loading />;
+  // Engineers only see defects at the sites of their own jobs.
+  if (!scope.canSeeSite(d.siteId)) return <NotAvailable what="defect" />;
   const closed = d.status === "verified" || d.status === "closed_no_action";
   const to = (status: string, needNotes?: boolean) => async () => {
     let notes: string | undefined;
@@ -43,7 +48,7 @@ export default function DefectPage() {
             {office && OPEN.includes(d.status) && <ActionButton variant="danger" onError={setError} action={to("closed_no_action", true)}>Close, no action</ActionButton>}
             {!OPEN.includes(d.status) && <ActionButton onError={setError} action={to("open")}>Reopen</ActionButton>}
             {!closed && <Button variant="secondary" onClick={() => setEditing((v) => !v)}>{editing ? "Close" : "Edit"}</Button>}
-            {office && OPEN.includes(d.status) && !d.quoteId && <LinkButton variant="secondary" href={`/app/quotes/new?clientId=${d.clientId}&siteId=${d.siteId}&defectId=${id}`}>Quote remedial</LinkButton>}
+            {perms.can("defects.quote") && OPEN.includes(d.status) && !d.quoteId && <LinkButton variant="secondary" href={`/app/quotes/new?clientId=${d.clientId}&siteId=${d.siteId}&defectId=${id}`}>Quote remedial</LinkButton>}
           </>
         }
       />

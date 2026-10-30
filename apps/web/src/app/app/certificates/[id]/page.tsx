@@ -5,7 +5,9 @@ import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { api, type Id } from "@/lib/api";
 import { useOrg } from "@/lib/session";
-import { OFFICE, OVERALL_RESULTS, disciplineLabel } from "@/lib/labels";
+import { OVERALL_RESULTS, disciplineLabel } from "@/lib/labels";
+import { NotAvailable } from "@/components/NotAvailable";
+import { useAssignedScope, usePermissions } from "@/lib/permissions";
 import { date, dateTime, fromDateInput, opt, toDateInput } from "@/lib/format";
 import { errorMessage } from "@/lib/errors";
 import { ActionButton, Badge, Button, Card, DL, ErrorBox, Field, Input, Loading, Notice, PageHeader, Select, StatusBadge, Textarea } from "@/components/ui";
@@ -18,8 +20,8 @@ type Overall = (typeof OVERALL_RESULTS)[number];
 export default function CertificatePage() {
   const { id } = useParams<{ id: Id<"certificates"> }>();
   const router = useRouter();
-  const { role } = useOrg();
-  const office = OFFICE.includes(role);
+  const perms = usePermissions();
+  const scope = useAssignedScope();
   const cert = useQuery(api.certificates.get, { certificateId: id });
   const issued = cert?.status === "issued";
   const pdf = useQuery(api.certificates.getPdf, cert && !cert.editable ? { certificateId: id } : "skip");
@@ -32,7 +34,9 @@ export default function CertificatePage() {
   const [error, setError] = useState<string | null>(null);
   const [issueReason, setIssueReason] = useState("");
 
-  if (!cert) return <Loading />;
+  if (!cert || !scope.ready) return <Loading />;
+  // Engineers only see certificates for the sites of their own jobs.
+  if (!scope.canSeeSite(cert.siteId)) return <NotAvailable what="certificate" />;
   const engineerSigned = !!cert.engineerSignature;
   const needsOverride = !!qual && !qual.qualified && !qual.coveredByPriorOverride;
 
@@ -44,10 +48,10 @@ export default function CertificatePage() {
         subtitle={<>{cert.typeName} · {disciplineLabel(cert.discipline)} · <a className="hover:underline" href={`/app/sites/${cert.siteId}`}>{cert.siteName}</a></>}
         actions={
           <>
-            {!cert.editable && <PdfButton pdf={pdf} onRegenerate={() => void regen({ certificateId: id }).catch((e) => setError(errorMessage(e)))} />}
-            {issued && office && <ActionButton onError={setError} action={async () => { const reason = window.prompt("Reason for reissue (optional)") ?? undefined; const r = await reissue({ certificateId: id, reason: reason || undefined }); router.push(`/app/certificates/${r.certificateId}`); }}>Reissue (new revision)</ActionButton>}
-            {issued && office && <ActionButton variant="danger" onError={setError} action={async () => { const reason = window.prompt("Reason for revoking this certificate?"); if (reason) await revoke({ certificateId: id, reason }); }}>Revoke</ActionButton>}
-            {cert.editable && office && <ActionButton variant="danger" confirm="Delete this draft certificate?" onError={setError} action={async () => { await removeDraft({ certificateId: id }); router.push("/app/certificates"); }}>Delete draft</ActionButton>}
+            {!cert.editable && <PdfButton pdf={pdf} onRegenerate={perms.can("certificates.revoke") ? () => void regen({ certificateId: id }).catch((e) => setError(errorMessage(e))) : undefined} />}
+            {issued && perms.can("certificates.reissue") && <ActionButton onError={setError} action={async () => { const reason = window.prompt("Reason for reissue (optional)") ?? undefined; const r = await reissue({ certificateId: id, reason: reason || undefined }); router.push(`/app/certificates/${r.certificateId}`); }}>Reissue (new revision)</ActionButton>}
+            {issued && perms.can("certificates.revoke") && <ActionButton variant="danger" onError={setError} action={async () => { const reason = window.prompt("Reason for revoking this certificate?"); if (reason) await revoke({ certificateId: id, reason }); }}>Revoke</ActionButton>}
+            {cert.editable && perms.can("certificates.deleteDraft") && <ActionButton variant="danger" confirm="Delete this draft certificate?" onError={setError} action={async () => { await removeDraft({ certificateId: id }); router.push("/app/certificates"); }}>Delete draft</ActionButton>}
           </>
         }
       />
@@ -96,7 +100,7 @@ export default function CertificatePage() {
                   : <Notice>{qual.detail}{qual.canOverride ? " As an owner/admin you can sign or issue with an override reason." : " Ask an owner or admin to override, or add a qualification on the Team page."}</Notice>}
               </div>
             )}
-            <SignForm certificateId={id} as="engineer" disabled={role === "office"} disabledReason="The engineer signature must be given by an engineer or manager." needsOverride={!engineerSigned && needsOverride} canOverride={!!qual?.canOverride} onError={setError} />
+            <SignForm certificateId={id} as="engineer" disabled={!perms.can("certificates.signAsEngineer")} disabledReason="The engineer signature must be given by an engineer or manager." needsOverride={!engineerSigned && needsOverride} canOverride={!!qual?.canOverride} onError={setError} />
             <div className="my-4 border-t border-slate-100" />
             <SignForm certificateId={id} as="client" onError={setError} />
           </Card>

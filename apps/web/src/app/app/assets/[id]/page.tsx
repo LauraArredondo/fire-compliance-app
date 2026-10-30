@@ -5,6 +5,8 @@ import { useParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { api, type Id } from "@/lib/api";
 import { disciplineLabel, humanize } from "@/lib/labels";
+import { NotAvailable } from "@/components/NotAvailable";
+import { useAssignedScope, usePermissions } from "@/lib/permissions";
 import { date, fromDateInput, opt, toDateInput } from "@/lib/format";
 import { errorMessage } from "@/lib/errors";
 import { ActionButton, Button, Card, DL, ErrorBox, Field, Input, LinkButton, Loading, PageHeader, StatusBadge } from "@/components/ui";
@@ -12,10 +14,13 @@ import { ActionButton, Button, Card, DL, ErrorBox, Field, Input, LinkButton, Loa
 export default function AssetPage() {
   const { id } = useParams<{ id: Id<"assets"> }>();
   const asset = useQuery(api.assets.get, { assetId: id });
+  const scope = useAssignedScope();
   const setStatus = useMutation(api.assets.setStatus);
   const decommission = useMutation(api.assets.decommission);
   const [editing, setEditing] = useState(false);
-  if (!asset) return <Loading />;
+  if (!asset || !scope.ready) return <Loading />;
+  // Engineers only see assets at the sites of their own jobs.
+  if (!scope.canSeeSite(asset.siteId)) return <NotAvailable what="asset" />;
   const gone = asset.status === "removed" || asset.status === "replaced";
   return (
     <>

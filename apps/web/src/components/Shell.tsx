@@ -6,6 +6,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useSession } from "@/lib/session";
 import { homeFor } from "@/lib/routing";
+import { canAccessWebPath } from "@fire/shared";
+import { DENIED_PARAM } from "@/lib/permissions";
 import { ROLE_LABEL, type Role } from "@/lib/labels";
 import { Loading } from "./ui";
 import { Logo } from "./Logo";
@@ -25,14 +27,17 @@ export function Shell({ area, nav, children }: { area: "staff" | "portal"; nav: 
   const [open, setOpen] = useState(false);
 
   const wrongArea = s.current && (area === "portal" ? s.current.role !== "client_user" : s.current.role === "client_user");
+  // Staff pages the current role can't open (e.g. an engineer typing /app/invoices) bounce to the dashboard.
+  const denied = !!s.current && !wrongArea && area === "staff" && !canAccessWebPath(s.current.role, pathname);
   useEffect(() => {
     if (s.isLoading) return;
     if (!s.isAuthenticated) router.replace(`/signin?next=${encodeURIComponent(pathname)}`);
     else if (s.me && !s.current) router.replace("/onboarding");
     else if (wrongArea) router.replace(homeFor(s.current));
-  }, [s.isLoading, s.isAuthenticated, s.me, s.current, wrongArea, router, pathname]);
+    else if (denied) router.replace(`/app?${DENIED_PARAM}=1`);
+  }, [s.isLoading, s.isAuthenticated, s.me, s.current, wrongArea, denied, router, pathname]);
 
-  if (s.isLoading || !s.isAuthenticated || !s.me || !s.current || wrongArea) return <Loading />;
+  if (s.isLoading || !s.isAuthenticated || !s.me || !s.current || wrongArea || denied) return <Loading />;
 
   const items = nav.filter((n) => !n.roles || n.roles.includes(s.current!.role));
   const root = area === "staff" ? "/app" : "/portal";

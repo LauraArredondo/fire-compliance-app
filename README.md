@@ -10,7 +10,8 @@ fire-compliance-app/
 │  ├─ web/          Next.js 16 (App Router) + TypeScript + Tailwind v4
 │  └─ mobile/       placeholder (Expo app goes here later)
 ├─ packages/
-│  └─ backend/      copy of the Convex project — types only, NOT the deploy source (see its README)
+│  ├─ backend/      copy of the Convex project — types only, NOT the deploy source (see its README)
+│  └─ shared/       role & permission map shared by web and mobile (@fire/shared)
 ├─ .env.example
 └─ package.json     npm workspaces
 ```
@@ -70,3 +71,37 @@ git push -u origin main --force
 
 In VS Code/Cursor: open the folder, then **Source Control → … → Pull, Push → Push** (after the one-time
 pull/force above). Never commit `apps/web/.env.local` or any `.env` with a deploy key — they're gitignored.
+
+## Role-based access
+
+What each role sees is defined once in `packages/shared/src/permissions.ts` and drives both the
+sidebar and the route guards. Opening a page your role can't use redirects to `/app` with a
+"not available for your role" message.
+
+| Role | Sees |
+| --- | --- |
+| **Engineer** | Dashboard (today, upcoming, open defects at my sites) · **My jobs** (only jobs assigned to them) and their job pages · the site & assets for those jobs · defects at those sites (raise/view) · certificates for those sites (create/sign as engineer) · My profile (details + qualifications). No clients list, quotes, invoices, prices, schedules, team or settings, and no other engineers' jobs. |
+| **Office** | Everything, except: void invoices, manage team, company/bank/reminder settings, revoke certificates, override qualification checks, sign as engineer. |
+| **Owner / Admin** | Everything. |
+| **Client user** | Client portal (`/portal`) only — unchanged. |
+
+### Backend gaps (to fix in the Convex project)
+
+The web app hides these, but the Convex functions still allow them for engineers (verified with a live
+probe on the dev deployment). Hiding in the UI is not security — these need fixing in the backend:
+
+1. `jobs:get` returns jobs not assigned to the engineer (also check `visits:listByJob`, `inspections:listForVisit`, `attachments:listForEntity` for jobs).
+2. `jobs:list` returns every job in the company to engineers — refuse or filter to assigned.
+3. `sites:list` / `sites:get` return all sites; same for `assets:list/get`, `locations:listBySite`, `defects:openForSite`, `certificates:listBySite` — scope to sites of assigned jobs.
+4. `clients:list` (STAFF) / `clients:get` (ANY) expose billing address, account number, notes — make OFFICE-only or return name only.
+5. `quotes:list` / `quotes:get` / `quotes:getPdf` expose prices — refuse engineers (as `invoices:list` already does).
+6. `organizations:get` returns `bankDetails` and billing settings — strip for non-office roles.
+7. `serviceSchedules:list` / `get` / `dueSoon` — make OFFICE (or limit to assigned sites).
+8. `reminders:list`, `listNotifications`, `getNotification`, `snooze`, `dismiss` are STAFF — engineers can see/dismiss office reminders (incl. invoice overdue). Make OFFICE.
+9. `defects:raise` / `update` work at any site; `defects:list` is org-wide — restrict engineers to sites of assigned jobs.
+10. `certificates:createDraft` / `updateDraft` / `sign` / `issue` / `reissue` don't check assignment; `certificates:list` is org-wide — restrict engineers; consider `reissue` OFFICE-only.
+11. `assets:*` and `locations:*` mutations (STAFF) work at any site — same scoping.
+
+Already correct: `invoices:list`, `team:list`, `getReminderSettings` refuse engineers; `qualifications:list` is self-only for engineers.
+Suggested helper: `requireJobAccess(ctx, jobId)` / `canAccessSite(ctx, member, siteId)` (engineer ⇒ must have an assigned, non-cancelled job at that site).
+

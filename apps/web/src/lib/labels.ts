@@ -65,8 +65,6 @@ export function toneFor(status: string): Tone {
   }
 }
 
-export type Role = "owner" | "admin" | "office" | "engineer" | "client_user";
-export const STAFF: Role[] = ["owner", "admin", "office", "engineer"];
-export const OFFICE: Role[] = ["owner", "admin", "office"];
-export const MANAGERS: Role[] = ["owner", "admin"];
-export const ROLE_LABEL: Record<Role, string> = { owner: "Owner", admin: "Admin", office: "Office", engineer: "Engineer", client_user: "Client portal" };
+// Roles live in the shared package so the web and mobile apps use the same map.
+export type { Role } from "@fire/shared";
+export { STAFF_ROLES as STAFF, OFFICE_ROLES as OFFICE, MANAGER_ROLES as MANAGERS, ROLE_LABELS as ROLE_LABEL } from "@fire/shared";

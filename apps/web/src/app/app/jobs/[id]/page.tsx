@@ -5,7 +5,9 @@ import { useParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { api, type Id } from "@/lib/api";
 import { useOrg } from "@/lib/session";
-import { OFFICE, disciplineLabel, humanize, jobStatusLabel } from "@/lib/labels";
+import { disciplineLabel, humanize, jobStatusLabel } from "@/lib/labels";
+import { usePermissions } from "@/lib/permissions";
+import { NotAvailable } from "@/components/NotAvailable";
 import { date, dateTime } from "@/lib/format";
 import { ActionButton, Badge, Button, Card, DL, ErrorBox, LinkButton, Loading, Notice, PageHeader, StatusBadge, Table, Textarea } from "@/components/ui";
 import { EngineerChecklist } from "@/components/Pickers";
@@ -24,8 +26,9 @@ const VERB: Record<string, string> = { draft: "Unschedule", scheduled: "Mark sch
 
 export default function JobDetailPage() {
   const { id } = useParams<{ id: Id<"jobs"> }>();
-  const { role, me } = useOrg();
-  const office = OFFICE.includes(role);
+  const { me } = useOrg();
+  const perms = usePermissions();
+  const office = perms.can("jobs.manage");
   const job = useQuery(api.jobs.get, { jobId: id });
   const setStatus = useMutation(api.jobs.setStatus);
   const assign = useMutation(api.jobs.assignEngineers);
@@ -39,6 +42,8 @@ export default function JobDetailPage() {
   const [visitNotes, setVisitNotes] = useState("");
 
   if (!job) return <Loading />;
+  // Engineers only see jobs they're assigned to.
+  if (perms.assignedOnly && !job.assignedEngineerIds.includes(me._id)) return <NotAvailable what="job" />;
   const locked = ["completed", "invoiced", "cancelled"].includes(job.status);
   const openVisit = job.visits.find((v) => v.status === "on_site" || v.status === "travelling" || v.status === "planned");
   const assigned = me && job.assignedEngineerIds.includes(me._id);
@@ -53,9 +58,9 @@ export default function JobDetailPage() {
   return (
     <>
       <PageHeader
-        back={{ href: "/app/jobs", label: "Jobs" }}
+        back={{ href: "/app/jobs", label: perms.assignedOnly ? "My jobs" : "Jobs" }}
         title={<span className="flex flex-wrap items-center gap-3">{job.jobNumber} · {job.title} <StatusBadge status={job.status} label={jobStatusLabel(job.status)} />{job.autoCreated && <Badge tone="purple">Auto-created</Badge>}</span>}
-        subtitle={<><a className="hover:underline" href={`/app/sites/${job.siteId}`}>{job.siteName}</a> · <a className="hover:underline" href={`/app/clients/${job.clientId}`}>{job.clientName}</a></>}
+        subtitle={<><a className="hover:underline" href={`/app/sites/${job.siteId}`}>{job.siteName}</a> · {perms.can("clients.view") ? <a className="hover:underline" href={`/app/clients/${job.clientId}`}>{job.clientName}</a> : job.clientName}</>}
         actions={
           <>
             {allowed.map((s) => (
@@ -64,7 +69,7 @@ export default function JobDetailPage() {
               </ActionButton>
             ))}
             {office && !locked && <LinkButton variant="secondary" href={`/app/jobs/${id}/edit`}>Edit</LinkButton>}
-            {office && job.status === "completed" && <ActionButton action={async () => { const r = await createInvoice({ jobId: id }); window.location.href = `/app/invoices/${r}`; }}>Create invoice</ActionButton>}
+            {perms.can("invoices.manage") && job.status === "completed" && <ActionButton action={async () => { const r = await createInvoice({ jobId: id }); window.location.href = `/app/invoices/${r}`; }}>Create invoice</ActionButton>}
           </>
         }
       />
@@ -80,8 +85,8 @@ export default function JobDetailPage() {
             ["Priority", humanize(job.priority)],
             ["Scheduled", job.scheduledStart ? `${dateTime(job.scheduledStart)}${job.scheduledEnd ? ` – ${dateTime(job.scheduledEnd)}` : ""}` : "Unscheduled"],
             ["Service due", job.scheduleDueAt ? date(job.scheduleDueAt) : null],
-            ["Schedule", job.scheduleId ? <a className="text-red-700 hover:underline" href={`/app/schedules/${job.scheduleId}`}>View schedule</a> : null],
-            ["Quote", job.quoteId ? <a className="text-red-700 hover:underline" href={`/app/quotes/${job.quoteId}`}>View quote</a> : null],
+            ["Schedule", job.scheduleId && perms.can("schedules.view") ? <a className="text-red-700 hover:underline" href={`/app/schedules/${job.scheduleId}`}>View schedule</a> : null],
+            ["Quote", job.quoteId && perms.can("quotes.view") ? <a className="text-red-700 hover:underline" href={`/app/quotes/${job.quoteId}`}>View quote</a> : null],
             ["Purchase order", job.purchaseOrderNumber],
             ["Completed", job.completedAt ? dateTime(job.completedAt) : null],
             ["Description", job.description],
