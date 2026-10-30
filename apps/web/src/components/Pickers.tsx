@@ -32,14 +32,14 @@ export function EngineerSelect({ value, onChange, placeholder = "Not set" }: { v
 /** Multi-select engineers as checkboxes. */
 export function EngineerChecklist({ value, onChange }: { value: Id<"users">[]; onChange: (ids: Id<"users">[]) => void }) {
   const eng = useEngineers();
-  if (!eng) return <div className="text-sm text-slate-500">Loading…</div>;
-  if (!eng.length) return <div className="text-sm text-slate-500">No team members yet.</div>;
+  if (!eng) return <div className="text-sm text-fg-muted">Loading…</div>;
+  if (!eng.length) return <div className="text-sm text-fg-muted">No team members yet.</div>;
   return (
     <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
       {eng.map((u) => (
         <label key={u.userId} className="inline-flex items-center gap-2 text-sm">
           <input type="checkbox" className="h-4 w-4" checked={value.includes(u.userId)} onChange={(e) => onChange(e.target.checked ? [...value, u.userId] : value.filter((x) => x !== u.userId))} />
-          {u.name} <span className="text-xs text-slate-500">({u.role})</span>
+          {u.name} <span className="text-xs text-fg-muted">({u.role})</span>
         </label>
       ))}
     </div>

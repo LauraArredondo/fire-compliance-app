@@ -29,13 +29,13 @@ export function LinesEditor({ lines, onChange, withKinds }: { lines: LineDraft[]
   const t = lineTotals(lines);
   return (
     <div className="space-y-2">
-      <div className="hidden grid-cols-12 gap-2 text-xs font-medium text-slate-500 md:grid">
+      <div className="hidden grid-cols-12 gap-2 text-xs font-medium text-fg-muted md:grid">
         {withKinds && <div className="col-span-2">Kind</div>}
         <div className={withKinds ? "col-span-3" : "col-span-5"}>Description</div>
         <div className="col-span-1">Qty</div><div className="col-span-2">Unit £</div><div className="col-span-1">Disc %</div><div className="col-span-1">VAT %</div><div className="col-span-2 text-right">Net</div>
       </div>
       {lines.map((l, i) => (
-        <div key={i} className="grid grid-cols-2 items-center gap-2 rounded-md border border-slate-100 p-2 md:grid-cols-12 md:border-0 md:p-0">
+        <div key={i} className="grid grid-cols-2 items-center gap-2 rounded-md border border-line-subtle p-2 md:grid-cols-12 md:border-0 md:p-0">
           {withKinds && <div className="md:col-span-2"><Select options={LINE_KINDS} value={l.kind} onChange={(e) => set(i, { kind: e.target.value })} /></div>}
           <div className={`col-span-2 ${withKinds ? "md:col-span-3" : "md:col-span-5"}`}><Input required placeholder="Description" value={l.description} onChange={(e) => set(i, { description: e.target.value })} /></div>
           <div className="md:col-span-1"><Input inputMode="decimal" value={l.quantity} onChange={(e) => set(i, { quantity: e.target.value })} /></div>
@@ -43,18 +43,18 @@ export function LinesEditor({ lines, onChange, withKinds }: { lines: LineDraft[]
           <div className="md:col-span-1"><Input inputMode="decimal" value={l.discountPercent} onChange={(e) => set(i, { discountPercent: e.target.value })} /></div>
           <div className="md:col-span-1"><Input inputMode="decimal" value={l.taxRate} onChange={(e) => set(i, { taxRate: e.target.value })} /></div>
           <div className="flex items-center justify-end gap-2 text-sm md:col-span-2">
-            {withKinds && <label className="flex items-center gap-1 text-xs text-slate-500"><input type="checkbox" checked={l.optional} onChange={(e) => set(i, { optional: e.target.checked })} />opt.</label>}
+            {withKinds && <label className="flex items-center gap-1 text-xs text-fg-muted"><input type="checkbox" checked={l.optional} onChange={(e) => set(i, { optional: e.target.checked })} />opt.</label>}
             <span className="tabular-nums">{money(lineNet(l))}</span>
-            <button type="button" aria-label="Remove line" className="text-slate-400 hover:text-red-700" onClick={() => onChange(lines.filter((_, j) => j !== i))}>✕</button>
+            <button type="button" aria-label="Remove line" className="text-fg-muted hover:text-danger" onClick={() => onChange(lines.filter((_, j) => j !== i))}>✕</button>
           </div>
         </div>
       ))}
-      <button type="button" className="text-sm font-medium text-red-700 hover:underline" onClick={() => onChange([...lines, blankLine(lines.at(-1)?.taxRate ?? "20")])}>+ Add line</button>
-      <div className="ml-auto w-full max-w-xs space-y-1 border-t border-slate-200 pt-2 text-sm">
+      <button type="button" className="text-sm font-medium text-link hover:underline" onClick={() => onChange([...lines, blankLine(lines.at(-1)?.taxRate ?? "20")])}>+ Add line</button>
+      <div className="ml-auto w-full max-w-xs space-y-1 border-t border-line pt-2 text-sm">
         <div className="flex justify-between"><span>Subtotal</span><span className="tabular-nums">{money(t.subtotal)}</span></div>
         <div className="flex justify-between"><span>VAT</span><span className="tabular-nums">{money(t.tax)}</span></div>
         <div className="flex justify-between font-semibold"><span>Total</span><span className="tabular-nums">{money(t.total)}</span></div>
-        {withKinds && lines.some((l) => l.optional) && <div className="text-xs text-slate-500">Optional lines are excluded until the client selects them.</div>}
+        {withKinds && lines.some((l) => l.optional) && <div className="text-xs text-fg-muted">Optional lines are excluded until the client selects them.</div>}
       </div>
     </div>
   );
@@ -65,10 +65,10 @@ export function LinesTable({ lines, currency }: { lines: { description: string; 
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full text-sm">
-        <thead><tr className="border-b border-slate-200 text-left text-xs text-slate-500"><th className="py-2 pr-3">Description</th><th className="py-2 pr-3 text-right">Qty</th><th className="py-2 pr-3 text-right">Unit</th><th className="py-2 pr-3 text-right">Disc</th><th className="py-2 pr-3 text-right">VAT</th><th className="py-2 text-right">Net</th></tr></thead>
+        <thead><tr className="border-b border-line text-left text-xs text-fg-muted"><th className="py-2 pr-3">Description</th><th className="py-2 pr-3 text-right">Qty</th><th className="py-2 pr-3 text-right">Unit</th><th className="py-2 pr-3 text-right">Disc</th><th className="py-2 pr-3 text-right">VAT</th><th className="py-2 text-right">Net</th></tr></thead>
         <tbody>
           {lines.map((l, i) => (
-            <tr key={i} className={`border-b border-slate-100 ${l.optional && !l.selected ? "text-slate-400" : ""}`}>
+            <tr key={i} className={`border-b border-line-subtle ${l.optional && !l.selected ? "text-fg-muted" : ""}`}>
               <td className="py-2 pr-3">{l.description}{l.optional && <span className="ml-2 text-xs">(optional{l.selected ? ", selected" : ""})</span>}</td>
               <td className="py-2 pr-3 text-right tabular-nums">{l.quantity}</td>
               <td className="py-2 pr-3 text-right tabular-nums">{money(l.unitPrice, currency)}</td>

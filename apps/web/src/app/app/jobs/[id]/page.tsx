@@ -80,8 +80,8 @@ export default function JobDetailPage() {
             ["Priority", humanize(job.priority)],
             ["Scheduled", job.scheduledStart ? `${dateTime(job.scheduledStart)}${job.scheduledEnd ? ` – ${dateTime(job.scheduledEnd)}` : ""}` : "Unscheduled"],
             ["Service due", job.scheduleDueAt ? date(job.scheduleDueAt) : null],
-            ["Schedule", job.scheduleId ? <a className="text-red-700 hover:underline" href={`/app/schedules/${job.scheduleId}`}>View schedule</a> : null],
-            ["Quote", job.quoteId ? <a className="text-red-700 hover:underline" href={`/app/quotes/${job.quoteId}`}>View quote</a> : null],
+            ["Schedule", job.scheduleId ? <a className="text-link hover:underline" href={`/app/schedules/${job.scheduleId}`}>View schedule</a> : null],
+            ["Quote", job.quoteId ? <a className="text-link hover:underline" href={`/app/quotes/${job.quoteId}`}>View quote</a> : null],
             ["Purchase order", job.purchaseOrderNumber],
             ["Completed", job.completedAt ? dateTime(job.completedAt) : null],
             ["Description", job.description],
@@ -94,7 +94,7 @@ export default function JobDetailPage() {
               <ActionButton variant="primary" onError={setError} action={async () => { const r = await assign({ jobId: id, engineerIds: engineers }); setAssignWarnings(r.warnings); setAssigning(false); }}>Save engineers</ActionButton>
             </div>
           ) : (
-            <ul className="space-y-1 text-sm">{job.engineers.length ? job.engineers.map((e) => <li key={e._id}>{e.name}</li>) : <li className="text-slate-500">No engineers assigned.</li>}</ul>
+            <ul className="space-y-1 text-sm">{job.engineers.length ? job.engineers.map((e) => <li key={e._id}>{e.name}</li>) : <li className="text-fg-muted">No engineers assigned.</li>}</ul>
           )}
           {assignWarnings && (assignWarnings.length ? <div className="mt-3"><QualificationWarnings warnings={assignWarnings} title="Assigned, with warnings" /></div> : <div className="mt-3"><Notice tone="green">Engineers assigned. All are qualified.</Notice></div>)}
         </Card>
@@ -110,7 +110,7 @@ export default function JobDetailPage() {
           { header: "Notes", cell: (v) => v.notes ?? "—" },
         ]} />
         {openVisit && (
-          <div className="mt-4 space-y-2 rounded-md border border-slate-200 bg-slate-50 p-3">
+          <div className="mt-4 space-y-2 rounded-md border border-line bg-subtle p-3">
             <div className="text-sm font-medium">Finish current visit</div>
             <Textarea placeholder="Visit notes" value={visitNotes} onChange={(e) => setVisitNotes(e.target.value)} />
             <div className="flex gap-2">

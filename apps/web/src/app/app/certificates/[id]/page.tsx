@@ -67,7 +67,7 @@ export default function CertificatePage() {
               ["Summary", cert.summary],
               ["Assets covered", String(cert.assetIds.length)],
               ["Defects recorded", String(cert.defectIds.length)],
-              ["Job", cert.jobId ? <a key="j" className="text-red-700 hover:underline" href={`/app/jobs/${cert.jobId}`}>View job</a> : null],
+              ["Job", cert.jobId ? <a key="j" className="text-link hover:underline" href={`/app/jobs/${cert.jobId}`}>View job</a> : null],
             ]} />
           )}
           {!cert.editable && cert.verifyUrl && <div className="mt-4"><CopyLink label="Verify" url={cert.verifyUrl} /></div>}
@@ -76,8 +76,8 @@ export default function CertificatePage() {
           <SignatureLine label="Engineer" sig={cert.engineerSignature} />
           <SignatureLine label="Client" sig={cert.clientSignature} />
           {cert.qualificationChecks && cert.qualificationChecks.length > 0 && (
-            <div className="mt-4 border-t border-slate-100 pt-3 text-xs text-slate-600">
-              <div className="mb-1 font-medium text-slate-700">Qualification checks</div>
+            <div className="mt-4 border-t border-line-subtle pt-3 text-xs text-fg-2">
+              <div className="mb-1 font-medium text-fg-2">Qualification checks</div>
               <ul className="space-y-1">{cert.qualificationChecks.map((c, i) => (
                 <li key={i}>{c.stage} · {c.engineerName}: {c.qualified ? "qualified" : "not qualified"}{c.override ? ` — overridden by ${c.override.byName}: “${c.override.reason}”` : ""}</li>
               ))}</ul>
@@ -97,11 +97,11 @@ export default function CertificatePage() {
               </div>
             )}
             <SignForm certificateId={id} as="engineer" disabled={role === "office"} disabledReason="The engineer signature must be given by an engineer or manager." needsOverride={!engineerSigned && needsOverride} canOverride={!!qual?.canOverride} onError={setError} />
-            <div className="my-4 border-t border-slate-100" />
+            <div className="my-4 border-t border-line-subtle" />
             <SignForm certificateId={id} as="client" onError={setError} />
           </Card>
           <Card title="Issue">
-            <p className="mb-3 text-sm text-slate-600">Issuing locks the certificate, generates the PDF and a public verification link. {cert.status === "pending_signature" && "This certificate type needs the client signature first."}</p>
+            <p className="mb-3 text-sm text-fg-2">Issuing locks the certificate, generates the PDF and a public verification link. {cert.status === "pending_signature" && "This certificate type needs the client signature first."}</p>
             {engineerSigned && needsOverride && qual?.canOverride && (
               <Field label="Qualification override reason" hint="Required: the signing engineer isn't qualified (min 5 characters)."><Input value={issueReason} onChange={(e) => setIssueReason(e.target.value)} /></Field>
             )}
@@ -111,7 +111,7 @@ export default function CertificatePage() {
                 Issue certificate
               </ActionButton>
             </div>
-            {!engineerSigned && <p className="mt-2 text-xs text-slate-500">The engineer must sign before issuing.</p>}
+            {!engineerSigned && <p className="mt-2 text-xs text-fg-muted">The engineer must sign before issuing.</p>}
           </Card>
         </div>
       )}
@@ -122,8 +122,8 @@ export default function CertificatePage() {
 function SignatureLine({ label, sig }: { label: string; sig?: { signedByName: string; signedByRole?: string; signedAt: number } }) {
   return (
     <div className="mb-3 text-sm">
-      <div className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</div>
-      {sig ? <div>{sig.signedByName}{sig.signedByRole ? `, ${sig.signedByRole}` : ""} <span className="text-xs text-slate-500">· {dateTime(sig.signedAt)}</span></div> : <div className="text-slate-400">Not signed</div>}
+      <div className="text-xs font-medium uppercase tracking-wide text-fg-muted">{label}</div>
+      {sig ? <div>{sig.signedByName}{sig.signedByRole ? `, ${sig.signedByRole}` : ""} <span className="text-xs text-fg-muted">· {dateTime(sig.signedAt)}</span></div> : <div className="text-fg-muted">Not signed</div>}
     </div>
   );
 }
@@ -139,7 +139,7 @@ function SignForm({ certificateId, as, disabled, disabledReason, needsOverride, 
   const [png, setPng] = useState<Blob | null>(null);
   const [reason, setReason] = useState("");
   const [result, setResult] = useState<string | null>(null);
-  if (disabled) return <p className="text-sm text-slate-500"><strong className="text-slate-700">Engineer signature:</strong> {disabledReason}</p>;
+  if (disabled) return <p className="text-sm text-fg-muted"><strong className="text-fg-2">Engineer signature:</strong> {disabledReason}</p>;
   const blocked = needsOverride && (!canOverride || reason.trim().length < 5);
   return (
     <div className="space-y-2">
@@ -156,7 +156,7 @@ function SignForm({ certificateId, as, disabled, disabledReason, needsOverride, 
         const r = await sign({ certificateId, as, signature: { signedByName: name.trim(), signedByRole: opt(roleTitle), signatureImageId, deviceInfo: navigator.userAgent.slice(0, 250) }, qualificationOverrideReason: reason.trim() || undefined });
         setResult(r.readyToIssue ? "Signed — ready to issue." : "Signed.");
       }}>Sign as {as}</ActionButton>
-      {result && <p className="text-xs text-green-700">{result}</p>}
+      {result && <p className="text-xs text-success">{result}</p>}
     </div>
   );
 }
@@ -182,9 +182,9 @@ function EditDraft({ cert }: { cert: { _id: Id<"certificates">; overallResult: O
       <Field label="Next inspection due" hint="Blank = from the certificate type's validity."><Input type="date" value={next} onChange={(e) => setNext(e.target.value)} /></Field>
       <Field label="Expires"><Input type="date" value={expires} onChange={(e) => setExpires(e.target.value)} /></Field>
       <Field label="Summary / observations" className="sm:col-span-2"><Textarea rows={4} value={summary} onChange={(e) => setSummary(e.target.value)} /></Field>
-      <div className="text-xs text-slate-500 sm:col-span-2">{cert.assetIds.length} assets and {cert.defectIds.length} defects attached (from the job&apos;s inspections). Detailed inspection results are captured in the mobile app.</div>
+      <div className="text-xs text-fg-muted sm:col-span-2">{cert.assetIds.length} assets and {cert.defectIds.length} defects attached (from the job&apos;s inspections). Detailed inspection results are captured in the mobile app.</div>
       <div className="sm:col-span-2"><ErrorBox message={error} /></div>
-      <div className="flex items-center gap-3"><Button type="submit" variant="secondary">Save draft</Button>{saved && <span className="text-xs text-green-700">Saved</span>}</div>
+      <div className="flex items-center gap-3"><Button type="submit" variant="secondary">Save draft</Button>{saved && <span className="text-xs text-success">Saved</span>}</div>
     </form>
   );
 }

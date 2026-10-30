@@ -27,10 +27,10 @@ export default function TeamMemberPage() {
         subtitle={m ? `${ROLE_LABEL[m.role as Role]} · ${m.email ?? ""}` : undefined} />
       <ErrorBox message={error} />
       <Card title="Qualifications" className="mb-6">
-        <p className="mb-3 text-xs text-slate-500">Engineers need an in-date qualification for a discipline to sign its certificates (BAFE/NSI audit trail). Owners/admins can override with a recorded reason.</p>
+        <p className="mb-3 text-xs text-fg-muted">Engineers need an in-date qualification for a discipline to sign its certificates (BAFE/NSI audit trail). Owners/admins can override with a recorded reason.</p>
         <Table rows={quals} empty="No qualifications recorded." columns={[
           { header: "Discipline", cell: (q) => disciplineLabel(q.discipline) },
-          { header: "Qualification", cell: (q) => q.documentUrl ? <a className="text-red-700 hover:underline" href={q.documentUrl} target="_blank" rel="noreferrer">{q.title}</a> : q.title },
+          { header: "Qualification", cell: (q) => q.documentUrl ? <a className="text-link hover:underline" href={q.documentUrl} target="_blank" rel="noreferrer">{q.title}</a> : q.title },
           { header: "Issuer", cell: (q) => q.issuer ?? "—" },
           { header: "Reference", cell: (q) => q.reference ?? "—" },
           { header: "Expires", cell: (q) => <span>{date(q.expiresAt)} {q.expiresAt && q.expiresAt < Date.now() && <Badge tone="red">Expired</Badge>}</span> },

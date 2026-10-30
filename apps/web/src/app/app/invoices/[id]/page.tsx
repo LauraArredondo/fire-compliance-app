@@ -71,8 +71,8 @@ export default function InvoicePage() {
               ["Due", inv.dueAt ? date(inv.dueAt) : null],
               ["Payment terms", inv.paymentTermsDays ? `${inv.paymentTermsDays} days` : null],
               ["Paid", inv.paidAt ? date(inv.paidAt) : null],
-              ["Job", inv.jobId ? <a key="j" className="text-red-700 hover:underline" href={`/app/jobs/${inv.jobId}`}>View job</a> : null],
-              ["Quote", inv.quoteId ? <a key="q" className="text-red-700 hover:underline" href={`/app/quotes/${inv.quoteId}`}>View quote</a> : null],
+              ["Job", inv.jobId ? <a key="j" className="text-link hover:underline" href={`/app/jobs/${inv.jobId}`}>View job</a> : null],
+              ["Quote", inv.quoteId ? <a key="q" className="text-link hover:underline" href={`/app/quotes/${inv.quoteId}`}>View quote</a> : null],
               ["Notes", inv.notes],
             ]} />
           </Card>

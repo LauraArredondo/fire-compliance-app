@@ -5,17 +5,31 @@ import { api } from "@/lib/api";
 import { useOrg } from "@/lib/session";
 import { address, date } from "@/lib/format";
 import { disciplineLabel } from "@/lib/labels";
-import { Card, LoadMore, PageHeader, StatusBadge, Table } from "@/components/ui";
+import { Card, LoadMore, StatusBadge, Table } from "@/components/ui";
 
 export default function PortalHome() {
-  const { orgId, membership } = useOrg();
+  const { orgId, membership, me } = useOrg();
   const org = useQuery(api.organizations.get, { orgId });
   const sites = usePaginatedQuery(api.sites.list, { orgId }, { initialNumItems: 25 });
   const certs = useQuery(api.certificates.list, { orgId, paginationOpts: { numItems: 10, cursor: null } });
   const defects = useQuery(api.defects.list, { orgId, status: "open", paginationOpts: { numItems: 10, cursor: null } });
+  const first = me.name?.split(" ")[0];
+  const siteCount = sites.status === "LoadingFirstPage" ? null : sites.results.length;
+  const siteCapped = sites.status === "CanLoadMore" || sites.status === "LoadingMore";
   return (
     <>
-      <PageHeader title="Your compliance portal" subtitle={org ? `Provided by ${org.name}${org.phone ? ` · ${org.phone}` : ""}${org.email ? ` · ${org.email}` : ""}` : membership.orgName ?? ""} />
+      <div className="mb-6">
+        <div className="type-overline text-brand">Compliance portal</div>
+        <h1 className="type-h1 mt-1 text-fg">{first ? `Hello, ${first}` : "Your compliance portal"}</h1>
+        <p className="mt-1 text-[15px] text-fg-2">
+          {org ? `Provided by ${org.name}${org.phone ? ` · ${org.phone}` : ""}${org.email ? ` · ${org.email}` : ""}` : membership.orgName ?? ""}
+        </p>
+      </div>
+      <div className="mb-6 grid grid-cols-1 gap-5 sm:grid-cols-3">
+        <Stat label="Sites" value={siteCount === null ? "—" : `${siteCount}${siteCapped ? "+" : ""}`} hint="Shared with your account" />
+        <Stat label="Recent certificates" value={certs === undefined ? "—" : `${certs.page.length}${certs.isDone ? "" : "+"}`} hint="Latest issued to you" />
+        <Stat label="Open defects" value={defects === undefined ? "—" : `${defects.page.length}${defects.isDone ? "" : "+"}`} hint="Still outstanding" />
+      </div>
       <Card title="Your sites">
         <Table rows={sites.status === "LoadingFirstPage" ? undefined : sites.results} href={(s) => `/portal/sites/${s._id}`} empty="No sites shared with you yet." columns={[
           { header: "Site", cell: (s) => s.name },
@@ -42,5 +56,15 @@ export default function PortalHome() {
         </Card>
       </div>
     </>
+  );
+}
+
+function Stat({ label, value, hint }: { label: string; value: string; hint: string }) {
+  return (
+    <div className="rounded-xl border border-line-subtle bg-surface p-5 shadow-e1">
+      <div className="type-overline text-fg-muted">{label}</div>
+      <div className="mt-2 text-4xl font-bold tracking-tight">{value}</div>
+      <div className="mt-1 text-[13px] text-fg-muted">{hint}</div>
+    </div>
   );
 }

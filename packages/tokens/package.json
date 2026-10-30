@@ -1,0 +1,12 @@
+{
+  "name": "@fire/tokens",
+  "version": "0.1.0",
+  "private": true,
+  "description": "FireGrid design tokens (W3C DTCG), CSS custom properties, and the Expo theme.",
+  "exports": {
+    ".": "./theme.ts",
+    "./theme": "./theme.ts",
+    "./tokens.css": "./tokens.css",
+    "./tokens.json": "./tokens.json"
+  }
+}

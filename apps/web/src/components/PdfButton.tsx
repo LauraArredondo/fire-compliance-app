@@ -1,6 +1,6 @@
 "use client";
 
-import { Badge } from "./ui";
+import { Badge, Button } from "./ui";
 
 /** Shows a download link for a generated PDF, or its generation status. */
 export function PdfButton({ pdf, label = "Download PDF", onRegenerate }: {
@@ -8,23 +8,23 @@ export function PdfButton({ pdf, label = "Download PDF", onRegenerate }: {
   label?: string;
   onRegenerate?: () => void;
 }) {
-  if (!pdf) return <span className="text-sm text-slate-500">Checking PDF…</span>;
+  if (!pdf) return <span className="text-sm text-fg-muted">Checking PDF…</span>;
   if (pdf.url && pdf.pdfStatus !== "pending") {
-    return <a href={pdf.url} target="_blank" rel="noreferrer" className="inline-flex items-center rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700">⬇ {label}</a>;
+    return <a href={pdf.url} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center rounded-md bg-inverse px-4 text-sm font-medium text-fg-inverse shadow-e1 hover:opacity-90">⬇ {label}</a>;
   }
   if (pdf.pdfStatus === "pending") return <Badge tone="blue">Generating PDF…</Badge>;
   if (pdf.pdfStatus === "failed") {
     return (
       <span className="inline-flex items-center gap-2">
         <Badge tone="red">PDF failed{pdf.pdfError ? `: ${pdf.pdfError}` : ""}</Badge>
-        {onRegenerate && <button type="button" className="text-sm text-red-700 hover:underline" onClick={onRegenerate}>Retry</button>}
+        {onRegenerate && <Button type="button" variant="ghost" className="h-auto px-2 text-link" onClick={onRegenerate}>Retry</Button>}
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-2">
       <Badge>No PDF yet</Badge>
-      {onRegenerate && <button type="button" className="text-sm text-red-700 hover:underline" onClick={onRegenerate}>Generate</button>}
+      {onRegenerate && <Button type="button" variant="ghost" className="h-auto px-2 text-link" onClick={onRegenerate}>Generate</Button>}
     </span>
   );
 }

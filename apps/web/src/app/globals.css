@@ -1,4 +1,177 @@
 @import "tailwindcss";
+@import "../../../../packages/tokens/tokens.css";
 
-:root { color-scheme: light; }
-body { @apply bg-slate-50 text-slate-900 antialiased; }
+/* Class-based dark mode. next-themes sets .dark on <html>; [data-theme="dark"] is also honoured. */
+@custom-variant dark (&:where(.dark, .dark *, [data-theme="dark"], [data-theme="dark"] *));
+
+/* Point the token font stacks at next/font variables (set on <html>). */
+:root {
+  --fg-font-sans: var(--font-geist-sans), "Geist", "Inter", system-ui, sans-serif;
+  --fg-font-mono: var(--font-geist-mono), "Geist Mono", ui-monospace, monospace;
+}
+
+@theme inline {
+  --color-canvas: var(--fg-bg-canvas);
+  --color-subtle: var(--fg-bg-subtle);
+  --color-surface: var(--fg-surface-default);
+  --color-elevated: var(--fg-surface-elevated);
+  --color-overlay: var(--fg-surface-overlay);
+  --color-sunken: var(--fg-surface-sunken);
+  --color-glass: var(--fg-surface-glass);
+  --color-hover: var(--fg-surface-hover);
+  --color-inverse: var(--fg-surface-inverse);
+
+  --color-line: var(--fg-border-default);
+  --color-line-subtle: var(--fg-border-subtle);
+  --color-line-strong: var(--fg-border-strong);
+  --color-line-glass: var(--fg-border-glass);
+
+  --color-fg: var(--fg-text-primary);
+  --color-fg-2: var(--fg-text-secondary);
+  --color-fg-muted: var(--fg-text-muted);
+  --color-fg-inverse: var(--fg-text-inverse);
+  --color-on-brand: var(--fg-text-on-brand);
+  --color-link: var(--fg-text-link);
+
+  --color-brand: var(--fg-brand-primary);
+  --color-brand-hover: var(--fg-brand-primary-hover);
+  --color-brand-pressed: var(--fg-brand-primary-pressed);
+  --color-brand-2: var(--fg-brand-secondary);
+  --color-brand-subtle: var(--fg-brand-subtle);
+  --color-brand-border: var(--fg-brand-subtle-border);
+
+  --color-ring: var(--fg-focus-ring);
+
+  --color-success: var(--fg-status-success-fg);
+  --color-success-bg: var(--fg-status-success-bg);
+  --color-success-line: var(--fg-status-success-border);
+  --color-success-solid: var(--fg-status-success-solid);
+  --color-warning: var(--fg-status-warning-fg);
+  --color-warning-bg: var(--fg-status-warning-bg);
+  --color-warning-line: var(--fg-status-warning-border);
+  --color-warning-solid: var(--fg-status-warning-solid);
+  --color-danger: var(--fg-status-danger-fg);
+  --color-danger-bg: var(--fg-status-danger-bg);
+  --color-danger-line: var(--fg-status-danger-border);
+  --color-danger-solid: var(--fg-status-danger-solid);
+  --color-info: var(--fg-status-info-fg);
+  --color-info-bg: var(--fg-status-info-bg);
+  --color-info-line: var(--fg-status-info-border);
+  --color-info-solid: var(--fg-status-info-solid);
+  --color-neutral: var(--fg-status-neutral-fg);
+  --color-neutral-bg: var(--fg-status-neutral-bg);
+  --color-neutral-line: var(--fg-status-neutral-border);
+
+  --color-crimson-500: var(--fg-crimson-500);
+  --color-crimson-600: var(--fg-crimson-600);
+  --color-red-500: var(--fg-red-500);
+  --color-orange-400: var(--fg-orange-400);
+  --color-orange-500: var(--fg-orange-500);
+  --color-amber-400: var(--fg-amber-400);
+  --color-ash-0: var(--fg-ash-0);
+  --color-ash-900: var(--fg-ash-900);
+
+  --font-sans: var(--fg-font-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--fg-font-mono), ui-monospace, monospace;
+
+  --radius-xs: var(--fg-radius-xs);
+  --radius-sm: var(--fg-radius-sm);
+  --radius-md: var(--fg-radius-md);
+  --radius-lg: var(--fg-radius-lg);
+  --radius-xl: var(--fg-radius-xl);
+  --radius-2xl: var(--fg-radius-2xl);
+  --radius-3xl: var(--fg-radius-3xl);
+
+  --shadow-e1: var(--fg-shadow-elevation-1);
+  --shadow-e2: var(--fg-shadow-elevation-2);
+  --shadow-e3: var(--fg-shadow-elevation-3);
+  --shadow-e4: var(--fg-shadow-elevation-4);
+  --shadow-glow: var(--fg-shadow-glow-brand);
+
+  --ease-standard: var(--fg-easing-standard);
+  --ease-emphasized: var(--fg-easing-emphasized);
+  --ease-spring: var(--fg-easing-spring);
+
+  --default-transition-duration: 220ms;
+  --default-transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+@utility bg-fire {
+  background-image: var(--fg-gradient-fire);
+}
+@utility text-fire {
+  background-image: var(--fg-gradient-fire);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+@utility glass {
+  background: var(--fg-surface-glass);
+  backdrop-filter: blur(20px) saturate(140%);
+  border-bottom: 1px solid var(--fg-border-subtle);
+}
+@utility glow-brand {
+  background: var(--fg-brand-glow);
+}
+@utility type-display-xl {
+  font-size: var(--fg-text-display-xl-size);
+  line-height: var(--fg-text-display-xl-line);
+  font-weight: var(--fg-text-display-xl-weight);
+  letter-spacing: var(--fg-text-display-xl-tracking);
+}
+@utility type-h1 {
+  font-size: var(--fg-text-heading-h1-size);
+  line-height: var(--fg-text-heading-h1-line);
+  font-weight: var(--fg-text-heading-h1-weight);
+  letter-spacing: var(--fg-text-heading-h1-tracking);
+}
+@utility type-h2 {
+  font-size: var(--fg-text-heading-h2-size);
+  line-height: var(--fg-text-heading-h2-line);
+  font-weight: var(--fg-text-heading-h2-weight);
+  letter-spacing: var(--fg-text-heading-h2-tracking);
+}
+@utility type-h3 {
+  font-size: var(--fg-text-heading-h3-size);
+  line-height: var(--fg-text-heading-h3-line);
+  font-weight: var(--fg-text-heading-h3-weight);
+  letter-spacing: var(--fg-text-heading-h3-tracking);
+}
+@utility type-overline {
+  font-size: var(--fg-text-overline-size);
+  line-height: var(--fg-text-overline-line);
+  font-weight: var(--fg-text-overline-weight);
+  letter-spacing: var(--fg-text-overline-tracking);
+  text-transform: uppercase;
+}
+
+body {
+  background: var(--fg-bg-canvas);
+  color: var(--fg-text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--fg-brand-subtle);
+  color: var(--fg-text-primary);
+}
+
+:focus-visible {
+  outline: 2px solid var(--fg-focus-ring);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

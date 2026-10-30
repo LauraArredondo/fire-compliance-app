@@ -58,7 +58,7 @@ export function SiteForm({ site, defaultClientId }: { site?: Doc<"sites">; defau
           <Field label="Site name"><Input required disabled={engineer} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Head office" /></Field>
           <Field label="Site reference (optional)"><Input disabled={engineer} value={reference} onChange={(e) => setReference(e.target.value)} /></Field>
         </div>
-        {engineer && <p className="mt-2 text-xs text-slate-500">Engineers can update contacts, access notes and hazards; the office manages name and address.</p>}
+        {engineer && <p className="mt-2 text-xs text-fg-muted">Engineers can update contacts, access notes and hazards; the office manages name and address.</p>}
       </Card>
       {!engineer && <Card title="Address"><AddressFields required value={addr} onChange={setAddr} /></Card>}
       <Card title="Site contact"><ContactFields value={siteContact} onChange={setSiteContact} /></Card>

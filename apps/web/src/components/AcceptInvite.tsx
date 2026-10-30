@@ -8,6 +8,7 @@ import { useSession } from "@/lib/session";
 import { errorMessage } from "@/lib/errors";
 import { Button, Card, ErrorBox, Loading } from "@/components/ui";
 import { Logo } from "@/components/Logo";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 /** Shared flow for /invite/team/[token] and /invite/portal/[token]. */
 export function AcceptInvite({ kind, accept }: { kind: "team" | "portal"; accept: () => Promise<{ orgId: Id<"organizations"> }> }) {
@@ -39,13 +40,14 @@ export function AcceptInvite({ kind, accept }: { kind: "team" | "portal"; accept
   }, [done, s, kind, router]);
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4">
+    <main className="relative mx-auto flex min-h-screen max-w-md flex-col justify-center px-4">
+      <div className="absolute right-4 top-4"><ThemeToggle /></div>
       <Logo className="mb-6" />
       <Card title={kind === "portal" ? "Client portal invitation" : "Team invitation"}>
         {err ? (
           <div className="space-y-4">
             <ErrorBox message={err} />
-            <p className="text-sm text-slate-600">Signed in as {s.me?.email ?? "…"}.</p>
+            <p className="text-sm text-fg-2">Signed in as {s.me?.email ?? "…"}.</p>
             <div className="flex gap-3">
               <Button variant="secondary" onClick={() => void signOut().then(() => router.replace(`/signin?next=${encodeURIComponent(window.location.pathname)}`))}>Use a different account</Button>
               <Button variant="secondary" onClick={() => router.replace("/")}>Go home</Button>

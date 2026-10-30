@@ -1,15 +1,16 @@
-# Fire Compliance App
+# FireGrid
 
 Multi-tenant SaaS for UK fire & security compliance companies (BS 5839 fire alarms, BS 5266 emergency
-lighting, BAFE, NSI). The backend is Convex; this repo has the **web app** (Next.js), a typed copy of the
-**backend**, and room for a **mobile app**.
+lighting, BAFE, NSI). The product name is **FireGrid**. The backend is Convex; this repo has the **web app**
+(Next.js), a typed copy of the **backend**, shared **design tokens**, and room for a **mobile app**.
 
 ```
 fire-compliance-app/
 ├─ apps/
 │  ├─ web/          Next.js 16 (App Router) + TypeScript + Tailwind v4
-│  └─ mobile/       placeholder (Expo app goes here later)
+│  └─ mobile/       placeholder (Expo app goes here later; FireGrid theme + logos are in place)
 ├─ packages/
+│  ├─ tokens/       FireGrid design tokens (CSS, W3C JSON, Expo theme.ts, logo SVGs)
 │  └─ backend/      copy of the Convex project — types only, NOT the deploy source (see its README)
 ├─ .env.example
 └─ package.json     npm workspaces
