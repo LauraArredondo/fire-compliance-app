@@ -8,6 +8,7 @@ import { homeFor } from "@/lib/routing";
 import { errorMessage } from "@/lib/errors";
 import { Button, ErrorBox, Field, Input, Loading } from "@/components/ui";
 import { Logo } from "@/components/Logo";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 function passwordProblem(pw: string): string | null {
   if (pw.length < 8 || !/\d/.test(pw) || !/[a-zA-Z]/.test(pw)) return "Password must be at least 8 characters and include a letter and a number.";
@@ -50,12 +51,14 @@ function SignInForm() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-6 text-center"><Logo className="text-xl" /></div>
-        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="relative flex min-h-screen items-center justify-center px-4 py-16">
+      <div aria-hidden className="pointer-events-none absolute -right-24 -top-32 h-[420px] w-[520px] rounded-full blur-[120px] glow-brand" />
+      <div className="absolute right-4 top-4"><ThemeToggle /></div>
+      <div className="relative w-full max-w-sm">
+        <div className="mb-6 flex justify-center"><Logo /></div>
+        <div className="rounded-xl border border-line-subtle bg-surface p-6 shadow-e2">
           <h1 className="mb-1 text-lg font-semibold">{flow === "signIn" ? "Sign in" : "Create your account"}</h1>
-          <p className="mb-5 text-sm text-slate-500">Fire &amp; security compliance for UK service companies.</p>
+          <p className="mb-5 text-sm text-fg-muted">FireGrid — fire and security compliance for UK service companies.</p>
           <form onSubmit={submit} className="space-y-4">
             {flow === "signUp" && <Field label="Your name"><Input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" /></Field>}
             <Field label="Email"><Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" /></Field>
@@ -65,9 +68,9 @@ function SignInForm() {
             <ErrorBox message={error} />
             <Button type="submit" className="w-full" disabled={busy}>{busy ? "Please wait…" : flow === "signIn" ? "Sign in" : "Create account"}</Button>
           </form>
-          <p className="mt-4 text-center text-sm text-slate-600">
+          <p className="mt-4 text-center text-sm text-fg-2">
             {flow === "signIn" ? "New here? " : "Already have an account? "}
-            <button type="button" className="font-medium text-red-700 hover:underline" onClick={() => { setFlow(flow === "signIn" ? "signUp" : "signIn"); setError(null); }}>
+            <button type="button" className="font-medium text-link hover:underline" onClick={() => { setFlow(flow === "signIn" ? "signUp" : "signIn"); setError(null); }}>
               {flow === "signIn" ? "Create an account" : "Sign in"}
             </button>
           </p>

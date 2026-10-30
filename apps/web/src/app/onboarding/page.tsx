@@ -10,6 +10,7 @@ import { errorMessage } from "@/lib/errors";
 import { DISCIPLINES, DISCIPLINE_LABEL, type Discipline } from "@/lib/labels";
 import { Button, Checkbox, ErrorBox, Field, Input, Loading } from "@/components/ui";
 import { Logo } from "@/components/Logo";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { opt } from "@/lib/format";
 
 export default function OnboardingPage() {
@@ -45,15 +46,17 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 py-10">
-      <div className="w-full max-w-lg">
+    <div className="relative flex min-h-screen items-center justify-center px-4 py-16">
+      <div aria-hidden className="pointer-events-none absolute -right-24 -top-32 h-[420px] w-[520px] rounded-full blur-[120px] glow-brand" />
+      <div className="absolute right-4 top-4"><ThemeToggle /></div>
+      <div className="relative w-full max-w-lg">
         <div className="mb-6 flex items-center justify-between">
-          <Logo className="text-xl" />
-          <button className="text-sm text-slate-500 hover:text-slate-800" onClick={() => void signOut().then(() => router.replace("/signin"))}>Sign out</button>
+          <Logo />
+          <button className="text-sm text-fg-muted hover:text-fg" onClick={() => void signOut().then(() => router.replace("/signin"))}>Sign out</button>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-line-subtle bg-surface p-6 shadow-e2">
           <h1 className="text-lg font-semibold">Set up your company</h1>
-          <p className="mb-5 mt-1 text-sm text-slate-500">
+          <p className="mb-5 mt-1 text-sm text-fg-muted">
             Signed in as {s.me.email}. {s.memberships.length ? "Create another company, or go back to your existing one." : "You'll be the owner and can invite your team afterwards."}
           </p>
           <form onSubmit={submit} className="space-y-4">
@@ -63,7 +66,7 @@ export default function OnboardingPage() {
               <Field label="Phone (optional)"><Input value={phone} onChange={(e) => setPhone(e.target.value)} /></Field>
             </div>
             <fieldset>
-              <legend className="mb-2 text-sm font-medium text-slate-700">Disciplines you cover</legend>
+              <legend className="mb-2 text-sm font-medium text-fg-2">Disciplines you cover</legend>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {DISCIPLINES.map((d) => (
                   <Checkbox key={d} label={DISCIPLINE_LABEL[d]} checked={disc.includes(d)} onChange={(on) => setDisc(on ? [...disc, d] : disc.filter((x) => x !== d))} />

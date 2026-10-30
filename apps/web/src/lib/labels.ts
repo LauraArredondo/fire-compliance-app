@@ -48,18 +48,17 @@ export function jobStatusLabel(s: string): string {
 }
 
 export type Tone = "gray" | "blue" | "green" | "amber" | "red" | "purple";
+/** Maps a status onto a FireGrid chip: success, info, warning, danger, or neutral. */
 export function toneFor(status: string): Tone {
   switch (status) {
     case "issued": case "paid": case "accepted": case "completed": case "resolved": case "verified": case "active": case "satisfactory": case "pass": case "in_service":
       return "green";
-    case "scheduled": case "sent": case "viewed": case "in_progress": case "quoted": case "pending_signature":
+    case "scheduled": case "sent": case "viewed": case "in_progress": case "quoted": case "pending_signature": case "invoiced":
       return "blue";
-    case "partially_paid": case "on_hold": case "satisfactory_with_observations": case "minor": case "advisory": case "draft": case "paused":
+    case "partially_paid": case "on_hold": case "satisfactory_with_observations": case "minor": case "advisory": case "paused": case "high": case "expired":
       return "amber";
-    case "overdue": case "revoked": case "declined": case "critical": case "major": case "unsatisfactory": case "open": case "fail": case "defective": case "out_of_service":
+    case "overdue": case "revoked": case "declined": case "critical": case "major": case "unsatisfactory": case "open": case "fail": case "defective": case "out_of_service": case "emergency":
       return "red";
-    case "invoiced":
-      return "purple";
     default:
       return "gray";
   }

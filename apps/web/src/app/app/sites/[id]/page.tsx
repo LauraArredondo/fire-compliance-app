@@ -136,13 +136,13 @@ function LocationsCard({ siteId, locations }: { siteId: Id<"sites">; locations: 
       <ul className="mb-3 space-y-1 text-sm">
         {ordered.map((l) => (
           <li key={l._id} className="flex items-center justify-between" style={{ paddingLeft: depth(l) * 14 }}>
-            <span>{l.name} <span className="text-xs text-slate-400">{l.kind}</span></span>
+            <span>{l.name} <span className="text-xs text-fg-muted">{l.kind}</span></span>
             <ActionButton variant="ghost" confirm={`Remove ${l.name}?`} action={() => remove({ locationId: l._id })}>×</ActionButton>
           </li>
         ))}
-        {!locations.length && <li className="text-slate-500">No locations yet.</li>}
+        {!locations.length && <li className="text-fg-muted">No locations yet.</li>}
       </ul>
-      <form onSubmit={add} className="space-y-2 border-t border-slate-100 pt-3">
+      <form onSubmit={add} className="space-y-2 border-t border-line-subtle pt-3">
         <div className="grid grid-cols-2 gap-2">
           <Input required placeholder="e.g. Ground floor" value={name} onChange={(e) => setName(e.target.value)} />
           <Select options={LOCATION_KINDS} value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} />
@@ -175,7 +175,7 @@ function AddAssetForm({ siteId, locations, onDone }: { siteId: Id<"sites">; loca
     } catch (err) { setError(errorMessage(err)); }
   }
   return (
-    <form onSubmit={submit} className="mb-4 space-y-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+    <form onSubmit={submit} className="mb-4 space-y-3 rounded-md border border-line bg-subtle p-3">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Field label="Type"><Select required placeholder={types ? "Select type…" : "Loading…"} value={assetTypeId} onChange={(e) => setAssetTypeId(e.target.value)} options={(types ?? []).map((t) => ({ value: t._id, label: `${t.name} (${disciplineLabel(t.discipline)})` }))} /></Field>
         <Field label="Reference / device address"><Input required value={reference} onChange={(e) => setReference(e.target.value)} placeholder="L1-D023" /></Field>

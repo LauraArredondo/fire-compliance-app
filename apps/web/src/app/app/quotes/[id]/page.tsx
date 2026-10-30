@@ -58,16 +58,16 @@ export default function QuotePage() {
           {draft ? (
             <div className="space-y-1">
               {q.lines.map((l) => (
-                <div key={l._id} className="flex items-center justify-between gap-3 border-b border-slate-100 py-2 text-sm">
-                  <span className="min-w-0 flex-1">{l.description}{l.optional && <span className="ml-1 text-xs text-slate-500">(optional)</span>} <span className="text-xs text-slate-500">× {l.quantity} @ {money(l.unitPrice, q.currency)}{l.discountPercent ? ` −${l.discountPercent}%` : ""} · VAT {l.taxRate}%</span></span>
+                <div key={l._id} className="flex items-center justify-between gap-3 border-b border-line-subtle py-2 text-sm">
+                  <span className="min-w-0 flex-1">{l.description}{l.optional && <span className="ml-1 text-xs text-fg-muted">(optional)</span>} <span className="text-xs text-fg-muted">× {l.quantity} @ {money(l.unitPrice, q.currency)}{l.discountPercent ? ` −${l.discountPercent}%` : ""} · VAT {l.taxRate}%</span></span>
                   <span className="tabular-nums">{money(l.lineTotal, q.currency)}</span>
                   <ActionButton variant="ghost" onError={setError} action={() => removeLine({ lineId: l._id })}>✕</ActionButton>
                 </div>
               ))}
-              {!q.lines.length && <p className="text-sm text-slate-500">No lines yet.</p>}
+              {!q.lines.length && <p className="text-sm text-fg-muted">No lines yet.</p>}
               <div className="pt-3">
                 {newLines.length > 0 ? (
-                  <div className="space-y-2 rounded-md bg-slate-50 p-3">
+                  <div className="space-y-2 rounded-md bg-subtle p-3">
                     <LinesEditor withKinds lines={newLines} onChange={setNewLines} />
                     <ActionButton variant="primary" onError={setError} action={async () => {
                       for (const l of newLines.filter((x) => x.description.trim())) await addLine({ quoteId: id, ...toLineArgs(l), kind: l.kind as never, optional: l.optional || undefined });
@@ -93,13 +93,13 @@ export default function QuotePage() {
             ]} />
           </Card>
           {(draft || open) && <SendCard quoteId={id} validUntil={q.validUntil} resend={!draft} />}
-          {link && (open || q.status === "accepted" || q.status === "declined") && <Card title="Client link"><CopyLink url={link} /><p className="mt-2 text-xs text-slate-500">The client can view, accept or decline here without logging in.</p></Card>}
+          {link && (open || q.status === "accepted" || q.status === "declined") && <Card title="Client link"><CopyLink url={link} /><p className="mt-2 text-xs text-fg-muted">The client can view, accept or decline here without logging in.</p></Card>}
         </div>
       </div>
       {(q.introduction || q.terms) && (
         <Card title="Introduction & terms" className="mt-6">
           {q.introduction && <p className="mb-3 whitespace-pre-wrap text-sm">{q.introduction}</p>}
-          {q.terms && <p className="whitespace-pre-wrap text-xs text-slate-600">{q.terms}</p>}
+          {q.terms && <p className="whitespace-pre-wrap text-xs text-fg-2">{q.terms}</p>}
         </Card>
       )}
     </>

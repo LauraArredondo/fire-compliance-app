@@ -31,7 +31,7 @@ export default function TeamPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card title="Members" className="lg:col-span-2">
           <Table rows={members?.map((m) => ({ ...m, _id: m.membershipId }))} href={(m) => `/app/team/${m.userId}`} empty="No members." columns={[
-            { header: "Name", cell: (m) => <span>{m.name ?? m.email}{m.userId === me?._id && <span className="ml-1 text-xs text-slate-500">(you)</span>}</span> },
+            { header: "Name", cell: (m) => <span>{m.name ?? m.email}{m.userId === me?._id && <span className="ml-1 text-xs text-fg-muted">(you)</span>}</span> },
             { header: "Email", cell: (m) => m.email ?? "—" },
             { header: "Role", cell: (m) => manager && m.userId !== me?._id && (m.role !== "owner" || role === "owner")
               ? <span onClick={(e) => e.stopPropagation()}><Select className="py-1" value={m.role} options={roleOptions} onChange={(e) => void updateRole({ membershipId: m.membershipId, role: e.target.value as StaffRole }).catch((err) => setError(errorMessage(err)))} /></span>

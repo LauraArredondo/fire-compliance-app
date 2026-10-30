@@ -52,14 +52,14 @@ export default function DefectPage() {
       <Card title="Details">
         <DL items={[
           ["Discipline", disciplineLabel(d.discipline)],
-          ["Asset", d.assetId ? <a className="text-red-700 hover:underline" href={`/app/assets/${d.assetId}`}>View asset</a> : null],
+          ["Asset", d.assetId ? <a className="text-link hover:underline" href={`/app/assets/${d.assetId}`}>View asset</a> : null],
           ["Description", d.description],
           ["Recommended action", d.recommendedAction],
           ["Raised", dateTime(d.raisedAt)],
           ["Target resolution", d.targetResolutionAt ? date(d.targetResolutionAt) : null],
           ["Visible to client", d.visibleToClient ? "Yes" : "No"],
-          ["Quote", d.quoteId ? <a className="text-red-700 hover:underline" href={`/app/quotes/${d.quoteId}`}>View quote</a> : null],
-          ["Remedial job", d.remedialJobId ? <a className="text-red-700 hover:underline" href={`/app/jobs/${d.remedialJobId}`}>View job</a> : null],
+          ["Quote", d.quoteId ? <a className="text-link hover:underline" href={`/app/quotes/${d.quoteId}`}>View quote</a> : null],
+          ["Remedial job", d.remedialJobId ? <a className="text-link hover:underline" href={`/app/jobs/${d.remedialJobId}`}>View job</a> : null],
           ["Resolved", d.resolvedAt ? dateTime(d.resolvedAt) : null],
           ["Resolution notes", d.resolutionNotes],
           ["Status", humanize(d.status)],

@@ -9,6 +9,8 @@ import { errorMessage } from "@/lib/errors";
 import { Button, Card, Checkbox, ErrorBox, Field, Input, Loading, Notice, StatusBadge, Textarea } from "@/components/ui";
 import { LinesTable, Totals } from "@/components/LinesEditor";
 import { SignaturePad, uploadBlob } from "@/components/SignaturePad";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { Logo } from "@/components/Logo";
 
 /** Public, unauthenticated quote view/accept/decline page (link from the quote email). */
 export default function PublicQuotePage() {
@@ -25,18 +27,18 @@ export default function PublicQuotePage() {
         {q.company.logoUrl && <img src={q.company.logoUrl} alt="" className="h-12 w-auto" />}
         <div>
           <div className="text-lg font-semibold">{q.company.name}</div>
-          <div className="text-sm text-slate-500">{[q.company.email, q.company.phone].filter(Boolean).join(" · ")}</div>
+          <div className="text-sm text-fg-muted">{[q.company.email, q.company.phone].filter(Boolean).join(" · ")}</div>
         </div>
       </div>
       <Card title={<span className="flex flex-wrap items-center gap-3">Quote {q.quoteNumber}{q.revision > 1 ? ` (rev ${q.revision})` : ""} <StatusBadge status={q.status} /></span>}>
         <div className="mb-4 text-sm">
           <div className="text-base font-medium">{q.title}</div>
-          <div className="text-slate-500">For {q.clientName}{q.siteName ? ` · ${q.siteName}` : ""}{q.validUntil ? ` · Valid until ${date(q.validUntil)}` : ""}</div>
+          <div className="text-fg-muted">For {q.clientName}{q.siteName ? ` · ${q.siteName}` : ""}{q.validUntil ? ` · Valid until ${date(q.validUntil)}` : ""}</div>
           {q.introduction && <p className="mt-3 whitespace-pre-line">{q.introduction}</p>}
         </div>
         <LinesTable lines={q.lines} currency={q.currency} />
         <Totals rows={[["Subtotal", money(q.subtotal, q.currency)], ...(q.discountTotal ? [["Discount", `−${money(q.discountTotal, q.currency)}`] as [string, string]] : []), ["VAT", money(q.taxTotal, q.currency)], ["Total", money(q.total, q.currency), true]]} />
-        {q.terms && <div className="mt-6 border-t border-slate-200 pt-4 text-xs whitespace-pre-line text-slate-600"><div className="mb-1 font-medium">Terms</div>{q.terms}</div>}
+        {q.terms && <div className="mt-6 border-t border-line pt-4 text-xs whitespace-pre-line text-fg-2"><div className="mb-1 font-medium">Terms</div>{q.terms}</div>}
       </Card>
       <div className="mt-6">
         {q.acceptance ? (
@@ -50,7 +52,13 @@ export default function PublicQuotePage() {
 }
 
 function Wrap({ children }: { children: React.ReactNode }) {
-  return <main className="mx-auto max-w-3xl px-4 py-10">{children}</main>;
+  return (
+    <main className="relative mx-auto min-h-screen max-w-3xl px-4 py-10">
+      <div className="absolute right-4 top-4"><ThemeToggle /></div>
+      <div className="mb-8"><Logo /></div>
+      {children}
+    </main>
+  );
 }
 
 type Line = { id: Id<"quoteLineItems">; description: string; optional: boolean; selected: boolean; lineTotal: number };
@@ -101,7 +109,7 @@ function Respond({ token, lines, currency }: { token: string; lines: Line[]; cur
               <Field label="Purchase order number (optional)"><Input value={po} onChange={(e) => setPo(e.target.value)} /></Field>
             </div>
             <Field label="Signature"><SignaturePad onChange={setSig} /></Field>
-            <p className="text-xs text-slate-500">By accepting you agree to the quote and its terms. Totals are recalculated for the optional items you select.</p>
+            <p className="text-xs text-fg-muted">By accepting you agree to the quote and its terms. Totals are recalculated for the optional items you select.</p>
           </>
         ) : (
           <Field label="Reason (optional)"><Textarea value={reason} onChange={(e) => setReason(e.target.value)} /></Field>

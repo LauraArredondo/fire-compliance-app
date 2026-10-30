@@ -110,7 +110,7 @@ function PortalAccessCard({ clientId, sites, archived }: { clientId: Id<"clients
 
   return (
     <Card title="Client portal">
-      <p className="mb-3 text-xs text-slate-500">Read-only access for the client to their certificates, sites and defects.</p>
+      <p className="mb-3 text-xs text-fg-muted">Read-only access for the client to their certificates, sites and defects.</p>
       <ul className="mb-3 space-y-2 text-sm">
         {access?.map((a) => (
           <li key={a._id} className="flex items-center justify-between gap-2">
@@ -119,20 +119,20 @@ function PortalAccessCard({ clientId, sites, archived }: { clientId: Id<"clients
           </li>
         ))}
         {invites?.page.filter((i) => i.status === "pending").map((i) => (
-          <li key={i._id} className="flex items-center justify-between gap-2 text-slate-600">
+          <li key={i._id} className="flex items-center justify-between gap-2 text-fg-2">
             <span className="min-w-0 truncate">{i.email} <Badge tone={i.expired ? "red" : "amber"}>{i.expired ? "Invite expired" : "Invited"}</Badge></span>
             <ActionButton variant="ghost" action={() => revokeInvite({ invitationId: i._id })}>Revoke</ActionButton>
           </li>
         ))}
-        {access?.length === 0 && invites?.page.length === 0 && <li className="text-slate-500">No portal users yet.</li>}
+        {access?.length === 0 && invites?.page.length === 0 && <li className="text-fg-muted">No portal users yet.</li>}
       </ul>
       {!archived && (
-        <form onSubmit={send} className="space-y-2 border-t border-slate-100 pt-3">
+        <form onSubmit={send} className="space-y-2 border-t border-line-subtle pt-3">
           <Field label="Invite by email"><Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
           <Field label="Name (optional)"><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
           {sites.length > 0 && (
             <Field label="Limit to sites (optional)">
-              <select multiple className="block w-full rounded-md border border-slate-300 px-2 py-1 text-sm" value={siteIds} onChange={(e) => setSiteIds([...e.target.selectedOptions].map((o) => o.value as Id<"sites">))}>
+              <select multiple className="block w-full rounded-md border border-line-strong px-2 py-1 text-sm" value={siteIds} onChange={(e) => setSiteIds([...e.target.selectedOptions].map((o) => o.value as Id<"sites">))}>
                 {sites.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
               </select>
             </Field>

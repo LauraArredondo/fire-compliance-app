@@ -8,6 +8,7 @@ import { DISCIPLINES, DISCIPLINE_LABEL, MANAGERS, type Discipline } from "@/lib/
 import { opt } from "@/lib/format";
 import { errorMessage } from "@/lib/errors";
 import { Button, Card, Checkbox, ErrorBox, Field, Input, Loading, Notice, PageHeader, Textarea } from "@/components/ui";
+import { ThemeChoice } from "@/components/ThemeToggle";
 import { AddressFields, addressArg, addressFrom } from "@/components/forms/AddressFields";
 import { uploadBlob } from "@/components/SignaturePad";
 
@@ -24,7 +25,7 @@ function useSaver() {
   const footer = (label = "Save") => (
     <div className="mt-4 space-y-2">
       <ErrorBox message={error} />
-      <div className="flex items-center gap-3"><Button type="submit" disabled={busy}>{busy ? "Saving…" : label}</Button>{saved && <span className="text-xs text-green-700">Saved</span>}</div>
+      <div className="flex items-center gap-3"><Button type="submit" disabled={busy}>{busy ? "Saving…" : label}</Button>{saved && <span className="text-xs text-success">Saved</span>}</div>
     </div>
   );
   return { run, footer };
@@ -40,6 +41,10 @@ export default function SettingsPage() {
       <PageHeader title="Settings" subtitle={org.name} />
       {!manager && <div className="mb-4"><Notice tone="blue">Only owners and admins can change company, billing and reminder settings. Office staff can change job automation.</Notice></div>}
       <div className="space-y-6">
+        <Card title="Appearance">
+          <p className="mb-3 text-sm text-fg-2">FireGrid follows your system setting until you pick light or dark. The choice is saved in this browser.</p>
+          <ThemeChoice />
+        </Card>
         <ProfileCard org={org} />
         <LogoCard orgId={orgId} logoUrl={org.logoUrl} />
         <BillingCard org={org} />
@@ -91,10 +96,10 @@ function ProfileCard({ org }: { org: Org }) {
                 <Input className="col-span-2" placeholder="Body (e.g. BAFE)" value={a.body} onChange={(e) => setAccreditations(accreditations.map((x, j) => (j === i ? { ...x, body: e.target.value } : x)))} />
                 <Input className="col-span-2" placeholder="Scheme (e.g. SP203-1)" value={a.scheme} onChange={(e) => setAccreditations(accreditations.map((x, j) => (j === i ? { ...x, scheme: e.target.value } : x)))} />
                 <Input className="col-span-2" placeholder="Number" value={a.number} onChange={(e) => setAccreditations(accreditations.map((x, j) => (j === i ? { ...x, number: e.target.value } : x)))} />
-                <button type="button" className="text-slate-400 hover:text-red-700" onClick={() => setAccreditations(accreditations.filter((_, j) => j !== i))}>✕</button>
+                <button type="button" className="text-fg-muted hover:text-danger" onClick={() => setAccreditations(accreditations.filter((_, j) => j !== i))}>✕</button>
               </div>
             ))}
-            <button type="button" className="text-sm font-medium text-red-700 hover:underline" onClick={() => setAccreditations([...accreditations, { body: "", scheme: "", number: "" }])}>+ Add accreditation</button>
+            <button type="button" className="text-sm font-medium text-link hover:underline" onClick={() => setAccreditations([...accreditations, { body: "", scheme: "", number: "" }])}>+ Add accreditation</button>
           </div>
         </Field>
         {footer("Save profile")}
@@ -118,9 +123,9 @@ function LogoCard({ orgId, logoUrl }: { orgId: Id<"organizations">; logoUrl: str
   return (
     <Card title="Logo">
       <div className="flex items-center gap-4">
-        {logoUrl ? <img src={logoUrl} alt="Company logo" className="h-16 w-auto rounded border border-slate-200 bg-white p-1" /> : <div className="flex h-16 w-28 items-center justify-center rounded border border-dashed border-slate-300 text-xs text-slate-400">No logo</div>}
-        <label className="cursor-pointer rounded-md border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">{busy ? "Uploading…" : "Upload PNG/JPEG"}<input type="file" accept="image/png,image/jpeg" className="hidden" onChange={(e) => void onFile(e.target.files?.[0])} /></label>
-        {logoUrl && <button type="button" className="text-sm text-red-700 hover:underline" onClick={() => void removeLogo({ orgId }).catch((e) => setError(errorMessage(e)))}>Remove</button>}
+        {logoUrl ? <img src={logoUrl} alt="Company logo" className="h-16 w-auto rounded border border-line bg-surface p-1" /> : <div className="flex h-16 w-28 items-center justify-center rounded border border-dashed border-line-strong text-xs text-fg-muted">No logo</div>}
+        <label className="cursor-pointer rounded-md border border-line-strong bg-surface px-3 py-2 text-sm hover:bg-hover">{busy ? "Uploading…" : "Upload PNG/JPEG"}<input type="file" accept="image/png,image/jpeg" className="hidden" onChange={(e) => void onFile(e.target.files?.[0])} /></label>
+        {logoUrl && <button type="button" className="text-sm text-link hover:underline" onClick={() => void removeLogo({ orgId }).catch((e) => setError(errorMessage(e)))}>Remove</button>}
       </div>
       <div className="mt-2"><ErrorBox message={error} /></div>
     </Card>

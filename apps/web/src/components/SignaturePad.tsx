@@ -13,7 +13,7 @@ export function SignaturePad({ onChange }: { onChange: (png: Blob | null) => voi
     const ratio = window.devicePixelRatio || 1;
     c.width = c.offsetWidth * ratio; c.height = c.offsetHeight * ratio;
     const ctx = c.getContext("2d")!;
-    ctx.scale(ratio, ratio); ctx.lineWidth = 2; ctx.lineCap = "round"; ctx.strokeStyle = "#0f172a";
+    ctx.scale(ratio, ratio); ctx.lineWidth = 2; ctx.lineCap = "round"; ctx.strokeStyle = "#151413";
   }, []);
 
   const pos = (e: React.PointerEvent) => { const r = ref.current!.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top] as const; };
@@ -24,8 +24,8 @@ export function SignaturePad({ onChange }: { onChange: (png: Blob | null) => voi
 
   return (
     <div>
-      <canvas ref={ref} className="h-32 w-full touch-none rounded-md border border-dashed border-slate-400 bg-white" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerLeave={up} />
-      <div className="mt-1 flex justify-between text-xs text-slate-500"><span>{empty ? "Sign above (optional)" : "Signed"}</span><button type="button" className="hover:underline" onClick={clear}>Clear</button></div>
+      <canvas ref={ref} className="h-32 w-full touch-none rounded-md border border-dashed border-line-strong bg-ash-0" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerLeave={up} />
+      <div className="mt-1 flex justify-between text-xs text-fg-muted"><span>{empty ? "Sign above (optional)" : "Signed"}</span><button type="button" className="hover:underline" onClick={clear}>Clear</button></div>
     </div>
   );
 }
