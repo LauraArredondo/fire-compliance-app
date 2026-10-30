@@ -1,0 +1,22 @@
+{
+  "name": "@fire/backend",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Convex backend (copy). Coco's /workspace/convex-project is the deploy source; do not deploy from here.",
+  "scripts": {
+    "typecheck": "tsc -p convex --noEmit"
+  },
+  "dependencies": {
+    "@auth/core": "^0.41.3",
+    "@convex-dev/auth": "^0.0.96",
+    "convex": "^1.48.0",
+    "pdf-lib": "^1.17.1",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/qrcode": "^1.5.6",
+    "jose": "^5.10.0",
+    "typescript": "^5.9.3"
+  }
+}
