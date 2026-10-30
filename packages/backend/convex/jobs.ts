@@ -6,7 +6,7 @@ import { requireMember, canSeeSite } from "./lib/auth";
 import { discipline } from "./schema";
 import { advanceSchedule } from "./lib/schedules";
 import { assignmentWarnings } from "./lib/qualifications";
-import { audit, fail, str, optStr, defined, loadDoc, loadForMember, inOrg, nextNumber, STAFF, OFFICE, ANY } from "./lib/util";
+import { audit, withNames, fail, str, optStr, defined, loadDoc, loadForMember, inOrg, nextNumber, STAFF, OFFICE, ANY } from "./lib/util";
 
 const jobType = v.union(v.literal("routine_service"), v.literal("inspection"), v.literal("installation"), v.literal("commissioning"), v.literal("remedial"), v.literal("callout"), v.literal("survey"));
 const priority = v.union(v.literal("low"), v.literal("normal"), v.literal("high"), v.literal("emergency"));
@@ -39,15 +39,17 @@ export const list = query({
         const site = await ctx.db.get(j.siteId);
         if (site && (await canSeeSite(ctx, membership, site))) out.push(j);
       }
-      return { ...page, page: out };
+      return { ...page, page: await withNames(ctx, out) };
     }
     if (siteId) {
       const site = await inOrg(ctx, siteId, orgId, "Site");
       const page = await ctx.db.query("jobs").withIndex("by_site", (q) => q.eq("siteId", site._id)).order("desc").paginate(paginationOpts);
-      return status ? { ...page, page: page.page.filter((j) => j.status === status) } : page;
+      return { ...page, page: await withNames(ctx, status ? page.page.filter((j) => j.status === status) : page.page) };
     }
-    if (status) return await ctx.db.query("jobs").withIndex("by_org_and_status", (q) => q.eq("orgId", orgId).eq("status", status)).order("desc").paginate(paginationOpts);
-    return await ctx.db.query("jobs").withIndex("by_org_and_scheduled", (q) => q.eq("orgId", orgId)).order("desc").paginate(paginationOpts);
+    const page = status
+      ? await ctx.db.query("jobs").withIndex("by_org_and_status", (q) => q.eq("orgId", orgId).eq("status", status)).order("desc").paginate(paginationOpts)
+      : await ctx.db.query("jobs").withIndex("by_org_and_scheduled", (q) => q.eq("orgId", orgId)).order("desc").paginate(paginationOpts);
+    return { ...page, page: await withNames(ctx, page.page) };
   },
 });
 

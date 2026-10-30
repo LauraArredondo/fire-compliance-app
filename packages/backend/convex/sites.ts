@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
 import { paginationOptsValidator } from "convex/server";
 import { mutation, query } from "./_generated/server";
 import { requireMember, canSeeSite } from "./lib/auth";
@@ -21,10 +22,19 @@ export const list = query({
       : cid
         ? await ctx.db.query("sites").withIndex("by_client", (q) => q.eq("clientId", cid)).paginate(paginationOpts)
         : await ctx.db.query("sites").withIndex("by_org", (q) => q.eq("orgId", orgId)).order("desc").paginate(paginationOpts);
-    if (!isClient) return page;
+    const names = new Map<string, string>();
+    const named = async <T extends { clientId: Id<"clients"> }>(rows: T[]) => {
+      const out: (T & { clientName: string })[] = [];
+      for (const r of rows) {
+        if (!names.has(r.clientId)) names.set(r.clientId, (await ctx.db.get(r.clientId))?.name ?? "");
+        out.push({ ...r, clientName: names.get(r.clientId)! });
+      }
+      return out;
+    };
+    if (!isClient) return { ...page, page: await named(page.page) };
     const visible = [];
     for (const s of page.page) if (s.orgId === orgId && (await canSeeSite(ctx, membership, s))) visible.push(s);
-    return { ...page, page: visible.map(({ accessNotes, ...s }) => s) };
+    return { ...page, page: await named(visible.map(({ accessNotes, ...s }) => s)) };
   },
 });
 

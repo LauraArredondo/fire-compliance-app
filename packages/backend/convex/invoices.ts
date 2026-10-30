@@ -7,7 +7,7 @@ import { queueEmail, appUrl } from "./lib/notify";
 import { included, formatMoney } from "./lib/money";
 import { requestInvoicePdf, invoicePdfUrl } from "./lib/docPdf";
 import { newPublicToken } from "./lib/tokens";
-import { audit, fail, str, optStr, defined, loadDoc, loadForMember, inOrg, nextNumber, email as cleanEmail, validateLine, lineNet, lineTax, int, num, DAY, OFFICE, MANAGERS, ANY } from "./lib/util";
+import { audit, withNames, fail, str, optStr, defined, loadDoc, loadForMember, inOrg, nextNumber, email as cleanEmail, validateLine, lineNet, lineTax, int, num, DAY, OFFICE, MANAGERS, ANY } from "./lib/util";
 
 const status = v.union(v.literal("draft"), v.literal("sent"), v.literal("partially_paid"), v.literal("paid"), v.literal("overdue"), v.literal("void"));
 const lineIn = v.object({ description: v.string(), quantity: v.number(), unitPrice: v.number(), discountPercent: v.optional(v.number()), taxRate: v.optional(v.number()) });
@@ -38,10 +38,12 @@ const effective = (i: Doc<"invoices">) => ((i.status === "sent" || i.status === 
 
 /** Invoices by status (office), or the client user's own invoices (sent onwards). Paginated. */
 export const list = query({
-  args: { orgId: v.id("organizations"), status: v.optional(status), clientId: v.optional(v.id("clients")), paginationOpts: paginationOptsValidator },
-  handler: async (ctx, { orgId, status: st, clientId, paginationOpts }) => {
+  /** status: omitted = "draft" for staff (unchanged default); "all" = every status, newest first. "overdue" = derived. */
+  args: { orgId: v.id("organizations"), status: v.optional(v.union(status, v.literal("all"))), clientId: v.optional(v.id("clients")), paginationOpts: paginationOptsValidator },
+  handler: async (ctx, { orgId, status: stIn, clientId, paginationOpts }) => {
     const { membership } = await requireMember(ctx, orgId, ANY);
     if (membership.role === "engineer") fail("Insufficient permissions");
+    const st = stIn === "all" ? undefined : stIn;
     if (membership.role === "client_user") {
       const page = await ctx.db.query("invoices").withIndex("by_client", (q) => q.eq("clientId", membership.clientId!)).order("desc").paginate(paginationOpts);
       const out = [];
@@ -50,18 +52,20 @@ export const list = query({
         const site = i.siteId ? await ctx.db.get(i.siteId) : null;
         if (!site || (await canSeeSite(ctx, membership, site))) out.push(effective(i));
       }
-      return { ...page, page: out };
+      return { ...page, page: await withNames(ctx, out) };
     }
     if (clientId) {
       const page = await ctx.db.query("invoices").withIndex("by_client", (q) => q.eq("clientId", clientId)).order("desc").paginate(paginationOpts);
-      return { ...page, page: page.page.filter((i) => i.orgId === orgId && (!st || effective(i).status === st)).map(effective) };
+      return { ...page, page: await withNames(ctx, page.page.filter((i) => i.orgId === orgId && (!st || effective(i).status === st)).map(effective)) };
     }
     if (st === "overdue") {
       const page = await ctx.db.query("invoices").withIndex("by_org_and_due", (q) => q.eq("orgId", orgId).lt("dueAt", Date.now())).paginate(paginationOpts);
-      return { ...page, page: page.page.map(effective).filter((i) => i.status === "overdue") };
+      return { ...page, page: await withNames(ctx, page.page.map(effective).filter((i) => i.status === "overdue")) };
     }
-    const page = await ctx.db.query("invoices").withIndex("by_org_and_status", (q) => q.eq("orgId", orgId).eq("status", st ?? "draft")).order("desc").paginate(paginationOpts);
-    return { ...page, page: page.page.map(effective) };
+    const page = stIn === "all"
+      ? await ctx.db.query("invoices").withIndex("by_org", (q) => q.eq("orgId", orgId)).order("desc").paginate(paginationOpts)
+      : await ctx.db.query("invoices").withIndex("by_org_and_status", (q) => q.eq("orgId", orgId).eq("status", st ?? "draft")).order("desc").paginate(paginationOpts);
+    return { ...page, page: await withNames(ctx, page.page.map(effective)) };
   },
 });
 

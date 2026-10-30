@@ -7,7 +7,7 @@ import { closeStaleAutoJobs, autoCreateJobsForOrg } from "./lib/autoJobs";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { MutationCtx } from "./_generated/server";
-import { audit, fail, str, optStr, defined, loadDoc, loadForMember, inOrg, cleanFrequency, frequencyV, addFrequency, int, DAY, STAFF, OFFICE, ANY } from "./lib/util";
+import { audit, withNames, fail, str, optStr, defined, loadDoc, loadForMember, inOrg, cleanFrequency, frequencyV, addFrequency, int, DAY, STAFF, OFFICE, ANY } from "./lib/util";
 
 /** Active service schedules due within the next `days` days (incl. overdue), for staff. */
 export const dueSoon = query({
@@ -33,16 +33,16 @@ export const list = query({
         const site = await ctx.db.get(s.siteId);
         if (site && (await canSeeSite(ctx, membership, site))) out.push(s);
       }
-      return { ...page, page: out };
+      return { ...page, page: await withNames(ctx, out) };
     }
     if (siteId) {
       const site = await inOrg(ctx, siteId, orgId, "Site");
       if (!(await canSeeSite(ctx, membership, site))) fail("Site not found");
       const page = await ctx.db.query("serviceSchedules").withIndex("by_site", (q) => q.eq("siteId", siteId)).paginate(paginationOpts);
-      return status ? { ...page, page: page.page.filter((s) => s.status === status) } : page;
+      return { ...page, page: await withNames(ctx, status ? page.page.filter((s) => s.status === status) : page.page) };
     }
     const page = await ctx.db.query("serviceSchedules").withIndex("by_org_and_next_due", (q) => q.eq("orgId", orgId)).paginate(paginationOpts);
-    return status ? { ...page, page: page.page.filter((s) => s.status === status) } : page;
+    return { ...page, page: await withNames(ctx, status ? page.page.filter((s) => s.status === status) : page.page) };
   },
 });
 

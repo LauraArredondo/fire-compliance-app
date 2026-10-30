@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { useQuery } from "convex/react";
+import { SiteName } from "@/components/Refs";
 import { api } from "@/lib/api";
 import { useOrg } from "@/lib/session";
 import { OFFICE } from "@/lib/labels";
 import { date, dateTime, money } from "@/lib/format";
 import { disciplineLabel, jobStatusLabel } from "@/lib/labels";
 import { Card, LinkButton, PageHeader, StatusBadge, Table, Badge } from "@/components/ui";
-import { SiteName } from "@/components/Refs";
 
 const page = { numItems: 10, cursor: null };
 
@@ -50,7 +50,7 @@ export default function Dashboard() {
           <Card title="Unscheduled jobs" actions={<Link className="text-sm text-red-700 hover:underline" href="/app/jobs?status=draft">View all</Link>}>
             <Table rows={unscheduled?.page} href={(j) => `/app/jobs/${j._id}`} empty="No unscheduled jobs." columns={[
               { header: "Job", cell: (j) => `${j.jobNumber} · ${j.title}` },
-              { header: "Site", cell: (j) => <SiteName id={j.siteId} /> },
+              { header: "Site", cell: (j) => j.siteName || "—" },
               { header: "", cell: (j) => j.autoCreated ? <Badge tone="blue">Auto · due {date(j.scheduleDueAt)}</Badge> : null },
             ]} />
           </Card>
@@ -59,7 +59,7 @@ export default function Dashboard() {
           <Table rows={defects?.page} href={(d) => `/app/defects/${d._id}`} empty="No open defects." columns={[
             { header: "Defect", cell: (d) => `${d.reference} · ${d.title}` },
             { header: "Severity", cell: (d) => <StatusBadge status={d.severity} /> },
-            { header: "Site", cell: (d) => <SiteName id={d.siteId} /> },
+            { header: "Site", cell: (d) => d.siteName || "—" },
           ]} />
         </Card>
         {office && (

@@ -6,7 +6,6 @@ import { useOrg } from "@/lib/session";
 import { date } from "@/lib/format";
 import { disciplineLabel } from "@/lib/labels";
 import { Card, LoadMore, PageHeader, StatusBadge, Table } from "@/components/ui";
-import { SiteName } from "@/components/Refs";
 
 export default function PortalCertificates() {
   const { orgId } = useOrg();
@@ -17,7 +16,7 @@ export default function PortalCertificates() {
       <Card>
         <Table rows={status === "LoadingFirstPage" ? undefined : results} href={(c) => `/portal/certificates/${c._id}`} empty="No certificates yet." columns={[
           { header: "Number", cell: (c) => c.certificateNumber },
-          { header: "Site", cell: (c) => <SiteName id={c.siteId} link={false} base="/portal" /> },
+          { header: "Site", cell: (c) => c.siteName || "—" },
           { header: "Type", cell: (c) => disciplineLabel(c.discipline) },
           { header: "Inspected", cell: (c) => date(c.inspectionDate) },
           { header: "Result", cell: (c) => <StatusBadge status={c.overallResult} /> },

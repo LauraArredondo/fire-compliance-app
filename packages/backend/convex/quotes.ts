@@ -9,7 +9,7 @@ import { queueEmail, appUrl } from "./lib/notify";
 import { quoteTotals, formatMoney } from "./lib/money";
 import { insertJob } from "./jobs";
 import { requestQuotePdf, quotePdfUrl } from "./lib/docPdf";
-import { audit, fail, str, optStr, defined, loadDoc, loadForMember, inOrg, nextNumber, email as cleanEmail, validateLine, lineNet, requireFile, IMAGE, DAY, OFFICE, ANY } from "./lib/util";
+import { audit, withNames, fail, str, optStr, defined, loadDoc, loadForMember, inOrg, nextNumber, email as cleanEmail, validateLine, lineNet, requireFile, IMAGE, DAY, OFFICE, ANY } from "./lib/util";
 
 const status = v.union(v.literal("draft"), v.literal("sent"), v.literal("viewed"), v.literal("accepted"), v.literal("declined"), v.literal("expired"), v.literal("superseded"));
 const kind = v.union(v.literal("labour"), v.literal("material"), v.literal("equipment"), v.literal("service"), v.literal("other"));
@@ -46,9 +46,11 @@ async function insertLine(ctx: MutationCtx, q: Doc<"quotes">, l: LineArgs, sortO
 
 /** Quotes by status (staff) or the client user's quotes (sent onwards). Paginated, newest first. */
 export const list = query({
-  args: { orgId: v.id("organizations"), status: v.optional(status), clientId: v.optional(v.id("clients")), paginationOpts: paginationOptsValidator },
-  handler: async (ctx, { orgId, status: st, clientId, paginationOpts }) => {
+  /** status: omitted = "draft" for staff (unchanged default); "all" = every status, newest first. */
+  args: { orgId: v.id("organizations"), status: v.optional(v.union(status, v.literal("all"))), clientId: v.optional(v.id("clients")), paginationOpts: paginationOptsValidator },
+  handler: async (ctx, { orgId, status: stIn, clientId, paginationOpts }) => {
     const { membership } = await requireMember(ctx, orgId, ANY);
+    const st = stIn === "all" ? undefined : stIn;
     if (membership.role === "client_user") {
       const page = await ctx.db.query("quotes").withIndex("by_client", (q) => q.eq("clientId", membership.clientId!)).order("desc").paginate(paginationOpts);
       const out = [];
@@ -57,13 +59,16 @@ export const list = query({
         const site = q.siteId ? await ctx.db.get(q.siteId) : null;
         if (!site || (await canSeeSite(ctx, membership, site))) out.push(strip(q));
       }
-      return { ...page, page: out };
+      return { ...page, page: await withNames(ctx, out) };
     }
     if (clientId) {
       const page = await ctx.db.query("quotes").withIndex("by_client", (q) => q.eq("clientId", clientId)).order("desc").paginate(paginationOpts);
-      return { ...page, page: page.page.filter((q) => q.orgId === orgId && (!st || q.status === st)) };
+      return { ...page, page: await withNames(ctx, page.page.filter((q) => q.orgId === orgId && (!st || q.status === st))) };
     }
-    return await ctx.db.query("quotes").withIndex("by_org_and_status", (q) => q.eq("orgId", orgId).eq("status", st ?? "draft")).order("desc").paginate(paginationOpts);
+    const page = stIn === "all"
+      ? await ctx.db.query("quotes").withIndex("by_org", (q) => q.eq("orgId", orgId)).order("desc").paginate(paginationOpts)
+      : await ctx.db.query("quotes").withIndex("by_org_and_status", (q) => q.eq("orgId", orgId).eq("status", st ?? "draft")).order("desc").paginate(paginationOpts);
+    return { ...page, page: await withNames(ctx, page.page) };
   },
 });
 const strip = ({ acceptanceToken, externalAccountingId, ...q }: Doc<"quotes">) => q;

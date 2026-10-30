@@ -188,7 +188,7 @@ Finalise a draft certificate: checks signatures, sets status `issued`, dates and
 
 ### `certificates:list` (query)
 Certificates by status (staff; client users see their client's issued ones). Paginated, newest first.
-- **Args:** `{ orgId: Id<organizations>, paginationOpts: { cursor: string | null, endCursor?: string | null, id?: number, maximumBytesRead?: number, maximumRowsRead?: number, numItems: number }, status?: "draft" | "pending_signature" | "issued" | "superseded" | "revoked" }`
+- **Args:** `{ orgId: Id<organizations>, paginationOpts: { cursor: string | null, endCursor?: string | null, id?: number, maximumBytesRead?: number, maximumRowsRead?: number, numItems: number }, status?: "draft" | "pending_signature" | "issued" | "superseded" | "revoked" | "all" }`
 - **Who:** any member incl. client_user (client_user scoped to own client/sites, read-only)
 
 ### `certificates:listBySite` (query)
@@ -301,7 +301,7 @@ Link a defect to a quote (marks it "quoted") or clear the link.
 
 ### `defects:list` (query)
 Defects by status, org-wide (staff) or for the client user's client. Paginated.
-- **Args:** `{ orgId: Id<organizations>, paginationOpts: { cursor: string | null, endCursor?: string | null, id?: number, maximumBytesRead?: number, maximumRowsRead?: number, numItems: number }, siteId?: Id<sites>, status?: "open" | "quoted" | "scheduled" | "in_progress" | "resolved" | "verified" | "closed_no_action" }`
+- **Args:** `{ orgId: Id<organizations>, paginationOpts: { cursor: string | null, endCursor?: string | null, id?: number, maximumBytesRead?: number, maximumRowsRead?: number, numItems: number }, siteId?: Id<sites>, status?: "open" | "quoted" | "scheduled" | "in_progress" | "resolved" | "verified" | "closed_no_action" | "all" }`
 - **Who:** any member incl. client_user (client_user scoped to own client/sites, read-only)
 
 ### `defects:openForSite` (query)
@@ -382,7 +382,7 @@ PDF status + download URL. Office/managers any status; portal users only sent in
 
 ### `invoices:list` (query)
 Invoices by status (office), or the client user's own invoices (sent onwards). Paginated.
-- **Args:** `{ clientId?: Id<clients>, orgId: Id<organizations>, paginationOpts: { cursor: string | null, endCursor?: string | null, id?: number, maximumBytesRead?: number, maximumRowsRead?: number, numItems: number }, status?: "draft" | "sent" | "partially_paid" | "paid" | "overdue" | "void" }`
+- **Args:** `{ clientId?: Id<clients>, orgId: Id<organizations>, paginationOpts: { cursor: string | null, endCursor?: string | null, id?: number, maximumBytesRead?: number, maximumRowsRead?: number, numItems: number }, status?: "draft" | "sent" | "partially_paid" | "paid" | "overdue" | "void" | "all" }`
 - **Who:** any member incl. client_user (client_user scoped to own client/sites, read-only)
 
 ### `invoices:recordPayment` (mutation)
@@ -620,7 +620,7 @@ PDF status + download URL. Staff any status; portal users only for quotes they c
 
 ### `quotes:list` (query)
 Quotes by status (staff) or the client user's quotes (sent onwards). Paginated, newest first.
-- **Args:** `{ clientId?: Id<clients>, orgId: Id<organizations>, paginationOpts: { cursor: string | null, endCursor?: string | null, id?: number, maximumBytesRead?: number, maximumRowsRead?: number, numItems: number }, status?: "draft" | "sent" | "viewed" | "accepted" | "declined" | "expired" | "superseded" }`
+- **Args:** `{ clientId?: Id<clients>, orgId: Id<organizations>, paginationOpts: { cursor: string | null, endCursor?: string | null, id?: number, maximumBytesRead?: number, maximumRowsRead?: number, numItems: number }, status?: "draft" | "sent" | "viewed" | "accepted" | "declined" | "expired" | "superseded" | "all" }`
 - **Who:** any member incl. client_user (client_user scoped to own client/sites, read-only)
 
 ### `quotes:markViewed` (mutation)

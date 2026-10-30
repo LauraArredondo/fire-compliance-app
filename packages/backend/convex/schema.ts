@@ -571,6 +571,7 @@ export default defineSchema({
     .index("by_client_and_status", ["clientId", "status"])
     .index("by_asset", ["assetId"])
     .index("by_org_and_severity", ["orgId", "severity"])
+    .index("by_org", ["orgId"])
     .index("by_client_generated_id", ["clientGeneratedId"]),
 
   /** Generic file attachments (photos, PDFs, drawings) linked to any record. */
@@ -698,6 +699,7 @@ export default defineSchema({
   })
     .index("by_verification_token", ["verificationToken"])
     .index("by_org_and_number", ["orgId", "certificateNumber"])
+    .index("by_org", ["orgId"])
     .index("by_org_and_status", ["orgId", "status"])
     .index("by_site", ["siteId"])
     .index("by_client", ["clientId"])
@@ -948,6 +950,7 @@ export default defineSchema({
     .index("by_client", ["clientId"])
     .index("by_site", ["siteId"])
     .index("by_org_and_number", ["orgId", "quoteNumber"])
+    .index("by_org", ["orgId"])
     .index("by_acceptance_token", ["acceptanceToken"])
     .index("by_status_and_valid_until", ["status", "validUntil"]),
 
@@ -1024,6 +1027,7 @@ export default defineSchema({
     .index("by_client", ["clientId"])
     .index("by_job", ["jobId"])
     .index("by_org_and_number", ["orgId", "invoiceNumber"])
+    .index("by_org", ["orgId"])
     .index("by_org_and_due", ["orgId", "dueAt"])
     .index("by_external_id", ["externalProvider", "externalId"])
     .index("by_quote", ["quoteId"])

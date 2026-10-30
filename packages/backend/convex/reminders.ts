@@ -446,7 +446,7 @@ async function buildContent(ctx: QueryCtx, r: Doc<"reminders">, org: Doc<"organi
           ["Recorded", fd(d.raisedAt)],
           ...(d.recommendedAction ? ([["Recommended action", d.recommendedAction]] as [string, string][]) : []),
         ],
-        cta: to === "client" ? { label: "View defect", url: portal } : { label: "Open defect", url: app(`defects/${d._id}`) },
+        cta: to === "client" ? { label: "View defect", url: `${siteUrl()}/portal/defects/${d._id}` } : { label: "Open defect", url: app(`defects/${d._id}`) },
       };
     }
     case "quote_followup": {

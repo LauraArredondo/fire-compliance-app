@@ -496,26 +496,32 @@ export const saveLabel = internalMutation({
 /* ------------------------------------------------------------------ */
 
 
+const stripChecks = ({ qualificationChecks, ...c }: Doc<"certificates">) => c;
 const certStatus = v.union(v.literal("draft"), v.literal("pending_signature"), v.literal("issued"), v.literal("superseded"), v.literal("revoked"));
 const overall = v.union(v.literal("satisfactory"), v.literal("unsatisfactory"), v.literal("satisfactory_with_observations"));
 const EDITABLE: Doc<"certificates">["status"][] = ["draft", "pending_signature"];
 
 /** Certificates by status (staff; client users see their client's issued ones). Paginated, newest first. */
 export const list = query({
-  args: { orgId: v.id("organizations"), status: v.optional(certStatus), paginationOpts: paginationOptsValidator },
-  handler: async (ctx, { orgId, status, paginationOpts }) => {
+  /** status: omitted = "issued" (unchanged default); "all" = every status, newest first. */
+  args: { orgId: v.id("organizations"), status: v.optional(v.union(certStatus, v.literal("all"))), paginationOpts: paginationOptsValidator },
+  handler: async (ctx, { orgId, status: st, paginationOpts }) => {
     const { membership } = await requireMember(ctx, orgId, U.ANY);
+    const status = st === "all" ? undefined : st;
     if (membership.role === "client_user") {
       const page = await ctx.db.query("certificates").withIndex("by_client", (q) => q.eq("clientId", membership.clientId!)).order("desc").paginate(paginationOpts);
       const out = [];
       for (const c of page.page) {
         if (EDITABLE.includes(c.status) || (status && c.status !== status)) continue;
         const site = await ctx.db.get(c.siteId);
-        if (site && (await canSeeSite(ctx, membership, site))) out.push(c);
+        if (site && (await canSeeSite(ctx, membership, site))) out.push(stripChecks(c));
       }
-      return { ...page, page: out };
+      return { ...page, page: await U.withNames(ctx, out) };
     }
-    return await ctx.db.query("certificates").withIndex("by_org_and_status", (q) => q.eq("orgId", orgId).eq("status", status ?? "issued")).order("desc").paginate(paginationOpts);
+    const page = st === "all"
+      ? await ctx.db.query("certificates").withIndex("by_org", (q) => q.eq("orgId", orgId)).order("desc").paginate(paginationOpts)
+      : await ctx.db.query("certificates").withIndex("by_org_and_status", (q) => q.eq("orgId", orgId).eq("status", status ?? "issued")).order("desc").paginate(paginationOpts);
+    return { ...page, page: await U.withNames(ctx, page.page.map(stripChecks)) };
   },
 });
 

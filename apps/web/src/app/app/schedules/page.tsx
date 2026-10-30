@@ -7,7 +7,6 @@ import { useOrg } from "@/lib/session";
 import { OFFICE, disciplineLabel } from "@/lib/labels";
 import { date } from "@/lib/format";
 import { ActionButton, Badge, Card, ErrorBox, FilterTabs, LinkButton, LoadMore, Notice, PageHeader, StatusBadge, Table } from "@/components/ui";
-import { SiteName } from "@/components/Refs";
 
 const STATUSES = ["active", "paused", "ended"] as const;
 const count = (x: unknown) => (Array.isArray(x) ? x.length : typeof x === "number" ? x : 0);
@@ -35,7 +34,8 @@ export default function SchedulesPage() {
         <FilterTabs value={status} onChange={setStatus} options={STATUSES} />
         <Table rows={st === "LoadingFirstPage" ? undefined : results} href={(s) => `/app/schedules/${s._id}`} empty="No schedules." columns={[
           { header: "Schedule", cell: (s) => s.name },
-          { header: "Site", cell: (s) => <SiteName id={s.siteId} link={false} /> },
+          { header: "Site", cell: (s) => s.siteName || "—" },
+          { header: "Client", cell: (s) => s.clientName || "—" },
           { header: "Discipline", cell: (s) => disciplineLabel(s.discipline) },
           { header: "Every", cell: (s) => `${s.frequency.interval} ${s.frequency.unit}${s.frequency.interval === 1 ? "" : "s"}` },
           { header: "Next due", cell: (s) => <span className="flex items-center gap-2">{date(s.nextDueAt)}{s.status === "active" && s.nextDueAt < Date.now() && <Badge tone="red">Overdue</Badge>}</span> },

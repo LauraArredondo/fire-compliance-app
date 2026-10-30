@@ -8,7 +8,6 @@ import { useOrg } from "@/lib/session";
 import { JOB_STATUSES, OFFICE, humanize, jobStatusLabel } from "@/lib/labels";
 import { dateTime } from "@/lib/format";
 import { Badge, Card, FilterTabs, LinkButton, Loading, LoadMore, PageHeader, StatusBadge, Table } from "@/components/ui";
-import { SiteName } from "@/components/Refs";
 
 type S = (typeof JOB_STATUSES)[number];
 
@@ -29,7 +28,8 @@ function Inner() {
         </div>
         <Table rows={st === "LoadingFirstPage" ? undefined : results} href={(j) => `/app/jobs/${j._id}`} empty="No jobs." columns={[
           { header: "Job", cell: (j) => <span>{j.jobNumber} · {j.title} {j.autoCreated && <Badge tone="purple">Auto</Badge>}</span> },
-          { header: "Site", cell: (j) => <SiteName id={j.siteId} link={false} /> },
+          { header: "Site", cell: (j) => j.siteName || "—" },
+          { header: "Client", cell: (j) => j.clientName || "—" },
           { header: "Type", cell: (j) => humanize(j.type) },
           { header: "Scheduled", cell: (j) => j.scheduledStart ? dateTime(j.scheduledStart) : "—" },
           { header: "Priority", cell: (j) => j.priority === "normal" ? "Normal" : <StatusBadge status={j.priority} /> },

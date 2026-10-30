@@ -4,7 +4,7 @@ import { mutation, query } from "./_generated/server";
 import { Doc } from "./_generated/dataModel";
 import { requireMember, canSeeClient, canSeeSite } from "./lib/auth";
 import { discipline } from "./schema";
-import { audit, fail, str, optStr, defined, loadDoc, loadForMember, inOrg, nextNumber, requireFile, IMAGE, STAFF, OFFICE, ANY } from "./lib/util";
+import { audit, withNames, fail, str, optStr, defined, loadDoc, loadForMember, inOrg, nextNumber, requireFile, IMAGE, STAFF, OFFICE, ANY } from "./lib/util";
 
 const severity = v.union(v.literal("critical"), v.literal("major"), v.literal("minor"), v.literal("advisory"));
 const status = v.union(v.literal("open"), v.literal("quoted"), v.literal("scheduled"), v.literal("in_progress"), v.literal("resolved"), v.literal("verified"), v.literal("closed_no_action"));
@@ -26,25 +26,31 @@ export const openForSite = query({
 
 /** Defects by status, org-wide (staff) or for the client user's client. Paginated. */
 export const list = query({
-  args: { orgId: v.id("organizations"), status: v.optional(status), siteId: v.optional(v.id("sites")), paginationOpts: paginationOptsValidator },
+  /** status: omitted = "open" (unchanged default); "all" = every status, newest first. */
+  args: { orgId: v.id("organizations"), status: v.optional(v.union(status, v.literal("all"))), siteId: v.optional(v.id("sites")), paginationOpts: paginationOptsValidator },
   handler: async (ctx, { orgId, status: st, siteId, paginationOpts }) => {
     const { membership } = await requireMember(ctx, orgId, ANY);
-    const s = st ?? "open";
+    const all = st === "all";
+    const s = st === "all" || st === undefined ? "open" : st;
     if (membership.role === "client_user") {
-      const page = await ctx.db.query("defects").withIndex("by_client_and_status", (q) => q.eq("clientId", membership.clientId!).eq("status", s)).order("desc").paginate(paginationOpts);
+      const page = await ctx.db.query("defects").withIndex("by_client_and_status", (q) => (all ? q.eq("clientId", membership.clientId!) : q.eq("clientId", membership.clientId!).eq("status", s))).order("desc").paginate(paginationOpts);
       const out = [];
       for (const d of page.page) {
         if (!d.visibleToClient || (siteId && d.siteId !== siteId)) continue;
         const site = await ctx.db.get(d.siteId);
         if (site && (await canSeeSite(ctx, membership, site))) out.push(d);
       }
-      return { ...page, page: out };
+      return { ...page, page: await withNames(ctx, out) };
     }
     if (siteId) {
       await inOrg(ctx, siteId, orgId, "Site");
-      return await ctx.db.query("defects").withIndex("by_site_and_status", (q) => q.eq("siteId", siteId).eq("status", s)).order("desc").paginate(paginationOpts);
+      const page = await ctx.db.query("defects").withIndex("by_site_and_status", (q) => (all ? q.eq("siteId", siteId) : q.eq("siteId", siteId).eq("status", s))).order("desc").paginate(paginationOpts);
+      return { ...page, page: await withNames(ctx, page.page) };
     }
-    return await ctx.db.query("defects").withIndex("by_org_and_status", (q) => q.eq("orgId", orgId).eq("status", s)).order("desc").paginate(paginationOpts);
+    const page = all
+      ? await ctx.db.query("defects").withIndex("by_org", (q) => q.eq("orgId", orgId)).order("desc").paginate(paginationOpts)
+      : await ctx.db.query("defects").withIndex("by_org_and_status", (q) => q.eq("orgId", orgId).eq("status", s)).order("desc").paginate(paginationOpts);
+    return { ...page, page: await withNames(ctx, page.page) };
   },
 });
 

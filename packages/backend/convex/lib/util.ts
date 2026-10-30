@@ -4,6 +4,22 @@ import { MutationCtx, QueryCtx } from "../_generated/server";
 import { requireMember, canSeeClient } from "./auth";
 
 type Ctx = QueryCtx | MutationCtx;
+
+/**
+ * Adds `clientName` and `siteName` ("" when missing / no site) to list rows.
+ * One lookup per distinct client / site on the page (cached).
+ */
+export async function withNames<T extends { clientId?: Id<"clients">; siteId?: Id<"sites"> }>(ctx: Ctx, rows: T[]): Promise<(T & { clientName: string; siteName: string })[]> {
+  const clients = new Map<string, string>();
+  const sites = new Map<string, string>();
+  const out: (T & { clientName: string; siteName: string })[] = [];
+  for (const r of rows) {
+    if (r.clientId && !clients.has(r.clientId)) clients.set(r.clientId, (await ctx.db.get(r.clientId))?.name ?? "");
+    if (r.siteId && !sites.has(r.siteId)) sites.set(r.siteId, (await ctx.db.get(r.siteId))?.name ?? "");
+    out.push({ ...r, clientName: r.clientId ? clients.get(r.clientId)! : "", siteName: r.siteId ? sites.get(r.siteId)! : "" });
+  }
+  return out;
+}
 export type Role = Doc<"memberships">["role"];
 
 /** Role groups. client_user is read-only everywhere (portal). */

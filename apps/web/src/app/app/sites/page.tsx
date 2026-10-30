@@ -7,7 +7,6 @@ import { useOrg } from "@/lib/session";
 import { OFFICE } from "@/lib/labels";
 import { address } from "@/lib/format";
 import { Card, Input, LinkButton, LoadMore, PageHeader, StatusBadge, Table } from "@/components/ui";
-import { ClientName } from "@/components/Refs";
 
 export default function SitesPage() {
   const { orgId, role } = useOrg();
@@ -20,7 +19,7 @@ export default function SitesPage() {
         <div className="mb-3 flex justify-end"><Input className="max-w-xs" placeholder="Search by name…" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
         <Table rows={status === "LoadingFirstPage" ? undefined : results} href={(s) => `/app/sites/${s._id}`} empty="No sites yet." columns={[
           { header: "Site", cell: (s) => s.name },
-          { header: "Client", cell: (s) => <ClientName id={s.clientId} /> },
+          { header: "Client", cell: (s) => s.clientName || "—" },
           { header: "Address", cell: (s) => address(s.address) },
           { header: "Status", cell: (s) => <StatusBadge status={s.status} /> },
         ]} />
